@@ -50,6 +50,9 @@
       },
       "obsidian-tikzjax": {
         "startupType": "instant"
+      },
+      "obsidian-git": {
+        "startupType": "instant"
       }
     }
   }
