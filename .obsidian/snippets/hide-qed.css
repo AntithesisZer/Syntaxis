@@ -1,0 +1,6 @@
+/* 当 proof 环境被包裹在 no-qed 类中时，强行隐藏结尾的方块 */
+.no-qed .proof-end,
+.no-qed .qed,
+.no-qed [class*="qed"] {
+    display: none !important;
+}

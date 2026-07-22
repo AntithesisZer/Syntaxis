@@ -1,0 +1,12 @@
+{
+  "theme": "moonstone",
+  "interfaceFontFamily": "",
+  "textFontFamily": "",
+  "monospaceFontFamily": "MesloLGS NF",
+  "cssTheme": "Border",
+  "accentColor": "",
+  "enabledCssSnippets": [
+    "codeblock-style-over-plugins",
+    "hide-qed"
+  ]
+}

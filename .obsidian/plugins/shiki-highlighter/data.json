@@ -1,0 +1,12 @@
+{
+  "disabledLanguages": [],
+  "customThemeFolder": "",
+  "customLanguageFolder": "",
+  "darkTheme": "one-dark-pro",
+  "lightTheme": "one-light",
+  "preferThemeColors": true,
+  "inlineHighlighting": true,
+  "ecDefaultShowLineNumbers": true,
+  "ecDefaultWrap": true,
+  "ecDefaultFrame": "auto"
+}

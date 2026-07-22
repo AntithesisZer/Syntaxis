@@ -1,0 +1,56 @@
+{
+  "dualConfigs": false,
+  "showConsoleLog": false,
+  "desktop": {
+    "shortDelaySeconds": 2,
+    "longDelaySeconds": 8,
+    "delayBetweenPlugins": 40,
+    "defaultStartupType": null,
+    "showDescriptions": true,
+    "enableDependencies": false,
+    "plugins": {
+      "auto-displaystyle-inline-math": {
+        "startupType": "short"
+      },
+      "math-in-callout": {
+        "startupType": "short"
+      },
+      "obsidian42-brat": {
+        "startupType": "instant"
+      },
+      "dataview": {
+        "startupType": "long"
+      },
+      "easy-latex": {
+        "startupType": "long"
+      },
+      "obsidian-latex-suite": {
+        "startupType": "short"
+      },
+      "math-booster": {
+        "startupType": "instant"
+      },
+      "mathlinks": {
+        "startupType": "instant"
+      },
+      "more-ordered-lists": {
+        "startupType": "instant"
+      },
+      "inline-math": {
+        "startupType": "short"
+      },
+      "quick-preview": {
+        "startupType": "short"
+      },
+      "shiki-highlighter": {
+        "startupType": "short"
+      },
+      "obsidian-style-settings": {
+        "startupType": "instant"
+      },
+      "obsidian-tikzjax": {
+        "startupType": "instant"
+      }
+    }
+  }
+}

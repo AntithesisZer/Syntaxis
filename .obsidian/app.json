@@ -1,0 +1,20 @@
+{
+  "defaultViewMode": "preview",
+  "spellcheck": true,
+  "vimMode": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "uncategorized_notes",
+  "attachmentFolderPath": "uncategorized_attachments",
+  "newLinkFormat": "relative",
+  "useMarkdownLinks": false,
+  "trashOption": "local",
+  "showLineNumber": false,
+  "pdfExportSettings": {
+    "includeName": true,
+    "pageSize": "A4",
+    "landscape": false,
+    "margin": "0",
+    "downscalePercent": 100
+  },
+  "autoPairMarkdown": false
+}
