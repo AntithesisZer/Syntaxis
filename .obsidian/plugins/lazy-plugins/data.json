@@ -10,10 +10,10 @@
     "enableDependencies": false,
     "plugins": {
       "auto-displaystyle-inline-math": {
-        "startupType": "short"
+        "startupType": "instant"
       },
       "math-in-callout": {
-        "startupType": "short"
+        "startupType": "instant"
       },
       "obsidian42-brat": {
         "startupType": "instant"
@@ -22,10 +22,10 @@
         "startupType": "long"
       },
       "easy-latex": {
-        "startupType": "long"
+        "startupType": "instant"
       },
       "obsidian-latex-suite": {
-        "startupType": "short"
+        "startupType": "long"
       },
       "math-booster": {
         "startupType": "instant"
@@ -37,13 +37,13 @@
         "startupType": "instant"
       },
       "inline-math": {
-        "startupType": "short"
+        "startupType": "instant"
       },
       "quick-preview": {
-        "startupType": "short"
+        "startupType": "instant"
       },
       "shiki-highlighter": {
-        "startupType": "short"
+        "startupType": "instant"
       },
       "obsidian-style-settings": {
         "startupType": "instant"
