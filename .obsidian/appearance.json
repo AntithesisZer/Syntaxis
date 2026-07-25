@@ -7,6 +7,7 @@
   "accentColor": "",
   "enabledCssSnippets": [
     "codeblock-style-over-plugins",
-    "hide-qed"
+    "hide-qed",
+    "header-style-over-theme"
   ]
 }

@@ -1,0 +1,12 @@
+/* 1. 确保标题开启相对定位 */
+.markdown-rendered :is(h1, h2, h3, h4, h5, h6) {
+    position: relative !important;
+}
+
+/* 2. 强行重置 Border 主题伪元素的定位机制 */
+.markdown-rendered :is(h1, h2, h3, h4, h5, h6)::before {
+    position: absolute !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+}
