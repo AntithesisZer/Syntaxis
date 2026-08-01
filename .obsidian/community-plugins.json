@@ -6,11 +6,11 @@
   "obsidian-tikzjax",
   "mathlinks",
   "math-booster",
+  "math-in-callout",
   "inline-math",
   "auto-displaystyle-inline-math",
   "easy-latex",
   "quick-preview",
   "shiki-highlighter",
-  "obsidian-git",
-  "math-in-callout"
+  "obsidian-git"
 ]
