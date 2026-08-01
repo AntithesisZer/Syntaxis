@@ -8,9 +8,9 @@
   "math-booster",
   "inline-math",
   "auto-displaystyle-inline-math",
-  "math-in-callout",
   "easy-latex",
   "quick-preview",
   "shiki-highlighter",
-  "obsidian-git"
+  "obsidian-git",
+  "math-in-callout"
 ]

@@ -12,13 +12,13 @@ export default [
         trigger: /([\(\\[\\{\\<\\|]|lvert|lbrack)lr/,
         replacement: (match) => {
             const bracketConfig = {
-                "(": { close: ")", left: "(",        right: ")" },
-                "[": { close: "]", left: "[",        right: "]" },
-                "{": { close: "}", left: "\\{",      right: "\\}" },
-                "<": { close: ">", left: "\\langle", right: "\\rangle" },
-                "|": { close: "|", left: "|",        right: "|" },
-                "lvert": { close: "", left: "\\lvert", right: "\\rvert" },
-                "lbrack": { close: "", left: "\\lbrack", right: "\\rbrack" },
+                "(":      { close: ")", left: "(",        right: ")" },
+                "[":      { close: "]", left: "[",        right: "]" },
+                "{":      { close: "}", left: "\\{",      right: "\\}" },
+                "<":      { close: ">", left: "\\langle", right: "\\rangle" },
+                "|":      { close: "|", left: "|",        right: "|" },
+                "lvert":  { close: "",  left: "\\lvert",  right: "\\rvert" },
+                "lbrack": { close: "",  left: "\\lbrack", right: "\\rbrack" },
             };
             const open = match[1];
             const cfg = bracketConfig[open];
@@ -145,7 +145,7 @@ export default [
 
     // Limits, Derivatives and Integrals
     { trigger: "lim",          replacement: "\\lim_{{$0}\\to{$1}} $2",                                options: "m" },
-    { trigger: /([^\\\\])int/, replacement: "[[0]]\\int",                                             options: "mA", priority: -1 },
+    { trigger: /(?<!\\)int/,   replacement: "\\int",                                                  options: "rmA", priority: -1 },
     { trigger: "\\int",        replacement: "\\int$0 \\, \\mathrm{d}${1:x} $2",                       options: "m" },
     { trigger: "dint",         replacement: "\\int_{${0:0}}^{${1:1}} $2 \\, \\mathrm{d}${3:x} $4",    options: "mA" },
     { trigger: "oint",         replacement: "\\oint",                                                 options: "mA" },
@@ -156,9 +156,9 @@ export default [
 
     // Trigonometry
     {
-        trigger: /([^\\\\])(arcsin|sin|arccos|cos|arctan|tan|csc|sec|cot)/,
-        replacement: "[[0]]\\[[1]]",
-        options: "rmA",
+        trigger: /(?<!\\)(arcsin|sin|arccos|cos|arctan|tan|csc|sec|cot)/,
+        replacement: "\\[[0]]",
+        options: "rmA"
     }, {
         trigger: /\\(arcsin|sin|arccos|cos|arctan|tan|csc|sec|cot)([A-Za-gi-z])/,
         replacement: "\\[[0]] [[1]]",
