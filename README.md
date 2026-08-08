@@ -21,8 +21,8 @@
 
 - 数学
 	- 微积分
-		- 《斯图尔特微积分》 ISBN 978-7-115-66725-0 
-		- 《斯图尔特微积分》 ISBN 978-7-115-69708-0
+		- 《斯图尔特微积分》 ISBN 978-7-115-66725-0 [更多信息](https://pdc.capub.cn/search.html#/detail?id=3byjm6g7f5lclho5ho43pwuk6jpijemk3jz76jqzbzsgeukyhjk7h7zqen3mh4zijxwnmqsvzgaq6&from=1&type=cip)
+		- 《斯图尔特微积分》 ISBN 978-7-115-69708-0 [更多信息](https://pdc.capub.cn/search.html#/detail?id=xtutruy7d37ww6oynfe3h4edekujzxbhy5xqb2pgcy75qpq5b6zph7zqen3mh4zi2xhagfvopk6gq&from=1&type=cip)
 	- 线性代数：暂无
 	- 概率论：暂无
 - 计算机
