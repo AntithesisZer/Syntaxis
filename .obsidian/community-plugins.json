@@ -8,8 +8,8 @@
   "math-in-callout",
   "inline-math",
   "auto-displaystyle-inline-math",
-  "easy-latex",
   "quick-preview",
   "shiki-highlighter",
-  "obsidian-git"
+  "obsidian-git",
+  "obsidian-latex-suite"
 ]
