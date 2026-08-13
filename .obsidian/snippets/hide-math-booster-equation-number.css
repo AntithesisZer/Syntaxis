@@ -1,3 +1,21 @@
-.math-booster-equation-number {
+/* =========================================================
+   1. 编辑模式 / 实时预览 (Live Preview) - 已验证生效
+   ========================================================= */
+.markdown-source-view .cm-embed-block:has(+ .cm-line .cm-blockid) mjx-labels,
+.markdown-source-view .cm-embed-block:has(.cm-blockid) mjx-labels {
+    display: none !important;
+}
+
+/* =========================================================
+   2. 阅读模式 (Reading View)
+   穿透搜寻公式容器内部及下一节点中非 MJX 系统的自定义块 ID
+   ========================================================= */
+/* 情况 A：块 ID 渲染在公式容器 div:nth-child(7) 内部或子节点 */
+.markdown-reading-view div:has(mjx-labels):has(a[id]:not([id^="MJX"])) mjx-labels,
+.markdown-reading-view div:has(mjx-labels):has([id]:not([id^="MJX"]):not(mjx-container):not(mjx-math):not(mjx-mtable):not(mjx-mtd):not(mjx-mtr)) mjx-labels,
+
+/* 情况 B：块 ID 渲染在公式紧邻的下一个节点 (div:nth-child(8)) */
+.markdown-reading-view div:has(mjx-labels):has(+ div [id]:not([id^="MJX"])) mjx-labels,
+.markdown-reading-view div:has(mjx-labels):has(+ div a) mjx-labels {
     display: none !important;
 }
