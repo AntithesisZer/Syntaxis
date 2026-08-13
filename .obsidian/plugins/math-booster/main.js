@@ -4359,11 +4359,11 @@ var MathIndex = class {
         let refName = null;
         if (block.$manualTag) {
           printName = `(${block.$manualTag})`;
-        } else if (!settings.numberOnlyReferencedEquations || block.$link && this.isLinked(block)) {
+        } /* else if (!settings.numberOnlyReferencedEquations || block.$link && this.isLinked(block)) {
           block.$index = equationCount;
           printName = "(" + eqPrefix + CONVERTER[settings.eqNumberStyle](equationNumberInit + equationCount) + eqSuffix + ")";
           equationCount++;
-        }
+        } */
         if (printName !== null)
           refName = settings.eqRefPrefix + printName + settings.eqRefSuffix;
         block.$printName = printName;

@@ -1,9 +1,5 @@
 {
-  "inlineEditEnabled": true,
-  "inlineEditFile": false,
-  "inlineEditHeading": true,
-  "inlineEditBlock": true,
-  "mult_line_handle": 3,
+  "mult_line_handle": 0,
   "alias_type": 0,
   "enable_right_click_block": true,
   "enable_right_click_embed": true,
@@ -38,5 +34,9 @@
   "blpViewMaxSourceFiles": 0,
   "blpViewMaxResults": 0,
   "blpViewShowDiagnostics": false,
+  "inlineEditEnabled": true,
+  "inlineEditFile": false,
+  "inlineEditHeading": true,
+  "inlineEditBlock": true,
   "lastSeenVersion": "2.0.16"
 }
