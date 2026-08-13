@@ -8,6 +8,7 @@
   "enabledCssSnippets": [
     "codeblock-style-over-plugins",
     "hide-qed",
-    "header-style-over-theme"
+    "header-style-over-theme",
+    "hide-math-booster-equation-number"
   ]
 }
