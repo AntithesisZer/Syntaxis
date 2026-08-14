@@ -19,7 +19,7 @@
   "highlightCursorBracketsEnabled": true,
   "mathPreviewEnabled": true,
   "mathPreviewPositionIsAbove": true,
-  "mathPreviewCursor": "|",
+  "mathPreviewCursor": "",
   "mathPreviewBracketHighlighting": true,
   "autofractionEnabled": false,
   "autofractionSymbol": "\\frac",
