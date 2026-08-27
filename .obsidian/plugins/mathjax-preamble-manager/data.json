@@ -1,0 +1,15 @@
+{
+  "preambles": {
+    "preambles": [
+      {
+        "path": "preambles/LaTeX-bm-package.md"
+      }
+    ],
+    "folderPreambles": [
+      {
+        "folderPath": "Calculus",
+        "preamblePath": "preambles/LaTeX-bm-package.md"
+      }
+    ]
+  }
+}
