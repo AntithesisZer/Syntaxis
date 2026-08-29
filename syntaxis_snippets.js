@@ -44,13 +44,13 @@ export default [
     { trigger: "ceil",  replacement: "\\lceil $0 \\rceil $1",   options: "mA" },
     { trigger: "floor", replacement: "\\lfloor $0 \\rfloor $1", options: "mA" },
     
-    { trigger: "mod", replacement: "|$0|$1",      options: "mA" },
-    { trigger: "(",   replacement: "(${VISUAL})", options: "mvA" },
-    { trigger: "[",   replacement: "[${VISUAL}]", options: "mvA" },
-    { trigger: "{",   replacement: "{${VISUAL}}", options: "mvA" },
+    // { trigger: "mod", replacement: "|$0|$1",      options: "mA" },
+    // { trigger: "(",   replacement: "(${VISUAL})", options: "mvA" },
+    // { trigger: "[",   replacement: "[${VISUAL}]", options: "mvA" },
+    // { trigger: "{",   replacement: "{${VISUAL}}", options: "mvA" },
     { trigger: "(",   replacement: "($0)$1",      options: "mA" },
-    { trigger: "{",   replacement: "{$0}$1",      options: "mA" },
     { trigger: "[",   replacement: "[$0]$1",      options: "mA" },
+    { trigger: "{",   replacement: "{$0}$1",      options: "mA" },
     {
         trigger: "vert",
         replacement: "\\lvert $0 \\rvert$1",
@@ -307,12 +307,12 @@ export default [
 
 
 
-    {
-        trigger: "tayl",
-        replacement: "${0:f}(${1:x} + ${2:h}) = ${0:f}(${1:x}) + ${0:f}'(${1:x})${2:h} + ${0:f}''(${1:x}) \\frac{${2:h}^{2}}{2!} + \\dots$3",
-        options: "mA",
-        description: "Taylor expansion"
-    },
+    // {
+    //     trigger: "tayl",
+    //     replacement: "${0:f}(${1:x} + ${2:h}) = ${0:f}(${1:x}) + ${0:f}'(${1:x})${2:h} + ${0:f}''(${1:x}) \\frac{${2:h}^{2}}{2!} + \\dots$3",
+    //     options: "mA",
+    //     description: "Taylor expansion"
+    // },
 
     {
         trigger: /iden(\d)/,

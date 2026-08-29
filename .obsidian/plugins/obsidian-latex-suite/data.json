@@ -9,7 +9,7 @@
   "suppressIMEWarning": false,
   "removeSnippetWhitespace": true,
   "autoDelete$": true,
-  "loadSnippetsFromFile": false,
+  "loadSnippetsFromFile": true,
   "loadSnippetVariablesFromFile": false,
   "snippetsFileLocation": "syntaxis_snippets.js",
   "snippetVariablesFileLocation": "",
