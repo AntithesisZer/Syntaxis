@@ -1,4 +1,4 @@
-const DELIMITER = [
+const DELIMITER_PAIRS = [
     { trigger_delim: "(", left_delim: "(", right_delim: ")" },
     { trigger_delim: "[", left_delim: "[", right_delim: "]" },
     { trigger_delim: "brack", left_delim: "\\lbrack", right_delim: "\\rbrack" },
@@ -29,7 +29,7 @@ function escapeRegex(str) {
 
 const generatedDelimiterSnippets = [];
 
-DELIMITER.forEach(({ trigger_delim, left_delim, right_delim }) => {
+DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
     const leftDisplay = left_delim ? (left_delim.startsWith("\\") && left_delim.length > 2 ? `${left_delim} ` : left_delim) : "";
     const rightDisplay = right_delim ? (right_delim.startsWith("\\") && right_delim.length > 2 ? ` ${right_delim}` : right_delim) : "";
 
@@ -208,11 +208,20 @@ export default [
     { trigger: ":W",  replacement: "\\varOmega",   options: "mA" },
 
     
-    // \bigr \Bigr \biggr \Biggr
-    { trigger: "bgr",   replacement: "\\bigr$0",  options: "mA" },
-    { trigger: "bgrr",  replacement: "\\Bigr$0",  options: "mA" },
-    { trigger: "bggr",  replacement: "\\biggr$0", options: "mA" },
-    { trigger: "bggrr", replacement: "\\Biggr$0", options: "mA" },
+    // Tall Delimiters
+    {
+        trigger: "(bgr|bgrr|bggr|bggrr)-(${DELIMITER})",
+        replacement: (match) => {
+            const sizeMap = {
+                "bgr": "\\bigr",
+                "bgrr": "\\Bigr",
+                "bggr": "\\biggr",
+                "bggrr": "\\Biggr"
+            };
+            return `${sizeMap[match[1]]}{${match[2]}}$0`;
+        },
+        options: "rmA"
+    },
 
 
     // ^{} _{}
@@ -256,114 +265,47 @@ export default [
 
 
 
-    // // \begin{} \end{}
-    // { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]}\n$0\n\\end{[[0]]}", options: "MA" },
-    // { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]} $0 \\end{[[0]]}",   options: "nA" },
-    // // /left([{ /right)]}
-    // {
-    //     trigger: /([\(\\[\\{\\<\\|]|lvert|lbrack)lr/,
-    //     replacement: (match) => {
-    //         const bracketConfig = {
-    //             "(":      { close: ")", left: "(",        right: ")" },
-    //             "[":      { close: "]", left: "[",        right: "]" },
-    //             "{":      { close: "}", left: "\\{",      right: "\\}" },
-    //             "<":      { close: ">", left: "\\langle", right: "\\rangle" },
-    //             "|":      { close: "|", left: "|",        right: "|" },
-    //             "lvert":  { close: "",  left: "\\lvert",  right: "\\rvert" },
-    //             "lbrack": { close: "",  left: "\\lbrack", right: "\\rbrack" },
-    //         };
-    //         const open = match[1];
-    //         const cfg = bracketConfig[open];
-    //         if (!cfg) return match[0]; 
-
-    //         const editor = app.workspace.activeEditor?.editor || app.workspace.getActiveViewOfType(Object)?.editor;
-    //         if (editor) {
-    //             const pos = editor.getCursor();
-    //             const nextChar = editor.getRange(pos, { line: pos.line, ch: pos.ch + 1 });
-    //             if (nextChar === cfg.close) {
-    //                 editor.replaceRange("", pos, { line: pos.line, ch: pos.ch + 1 });
-    //             }
-    //         }
-
-    //         return `\\left${cfg.left} $0 \\right${cfg.right}$1`;
-    //     },
-    //     options: "mA"
-    // },
-
-    // // Brackets
-    // { trigger: "avg",   replacement: "\\langle $0 \\rangle $1", options: "mA" },
-    // { trigger: "norm",  replacement: "\\lvert $0 \\rvert $1",   options: "mA", priority: 1 },
-    // { trigger: "Norm",  replacement: "\\lVert $0 \\rVert $1",   options: "mA", priority: 1 },
-    // { trigger: "ceil",  replacement: "\\lceil $0 \\rceil $1",   options: "mA" },
-    // { trigger: "floor", replacement: "\\lfloor $0 \\rfloor $1", options: "mA" },
-    
-    // { trigger: "mod", replacement: "|$0|$1",      options: "mA"  },
-    // { trigger: "(",   replacement: "(${VISUAL})", options: "mvA" },
-    // { trigger: "[",   replacement: "[${VISUAL}]", options: "mvA" },
-    // { trigger: "{",   replacement: "{${VISUAL}}", options: "mvA" },
-    // { trigger: "(",   replacement: "($0)$1",      options: "mA" },
-    // { trigger: "[",   replacement: "[$0]$1",      options: "mA" },
-    // { trigger: "{",   replacement: "{$0}$1",      options: "mA" },
-    // {
-    //     trigger: "vert",
-    //     replacement: "\\lvert $0 \\rvert$1",
-    //     options: "m"
-    // }, {
-    //     trigger: "brack",
-    //     replacement: "\\lbrack $0 \\rbrack$1",
-    //     options: "m"
-    // },
 
 
-    // Symbols
-    { trigger: "ooo", replacement: "\\infty", options: "m" },
+    // // Symbols
+    // { trigger: "ooo", replacement: "\\infty", options: "m" },
 
-    { trigger: "+-",   replacement: "\\pm",       options: "mA" },
-    { trigger: "-+",   replacement: "\\mp",       options: "mA" },
-    { trigger: "...",  replacement: "\\dots",     options: "mA" },
-    { trigger: "nabl", replacement: "\\nabla",    options: "mA" },
-    { trigger: "xx",   replacement: "\\times",    options: "mA" },
-    { trigger: "**",   replacement: "\\cdot",     options: "mA" },
-    { trigger: "para", replacement: "\\parallel", options: "mA" },
+    // { trigger: "+-",   replacement: "\\pm",       options: "mA" },
+    // { trigger: "-+",   replacement: "\\mp",       options: "mA" },
+    // { trigger: "...",  replacement: "\\dots",     options: "mA" },
+    // { trigger: "nabl", replacement: "\\nabla",    options: "mA" },
+    // { trigger: "xx",   replacement: "\\times",    options: "mA" },
+    // { trigger: "**",   replacement: "\\cdot",     options: "mA" },
+    // { trigger: "para", replacement: "\\parallel", options: "mA" },
 
-    { trigger: "===",  replacement: "\\equiv",  options: "mA" },
-    { trigger: "!=",   replacement: "\\neq",    options: "mA" },
-    { trigger: ">=",   replacement: "\\geq",    options: "mA" },
-    { trigger: "<=",   replacement: "\\leq",    options: "mA" },
-    { trigger: ">>",   replacement: "\\gg",     options: "mA" },
-    { trigger: "<<",   replacement: "\\ll",     options: "mA" },
-    { trigger: "simm", replacement: "\\sim",    options: "mA" },  
-    { trigger: "sim=", replacement: "\\simeq",  options: "mA" },
-    { trigger: "prop", replacement: "\\propto", options: "mA" },
+    // { trigger: "===",  replacement: "\\equiv",  options: "mA" },
+    // { trigger: "!=",   replacement: "\\neq",    options: "mA" },
+    // { trigger: ">=",   replacement: "\\geq",    options: "mA" },
+    // { trigger: "<=",   replacement: "\\leq",    options: "mA" },
+    // { trigger: ">>",   replacement: "\\gg",     options: "mA" },
+    // { trigger: "<<",   replacement: "\\ll",     options: "mA" },
+    // { trigger: "simm", replacement: "\\sim",    options: "mA" },  
+    // { trigger: "sim=", replacement: "\\simeq",  options: "mA" },
+    // { trigger: "prop", replacement: "\\propto", options: "mA" },
 
-    { trigger: "<->", replacement: "\\leftrightarrow ", options: "mA" },
-    { trigger: "->",  replacement: "\\to",              options: "mA" },
-    { trigger: "!>",  replacement: "\\mapsto",          options: "mA" },
-    { trigger: "=>",  replacement: "\\implies",         options: "mA" },  
-    { trigger: "=<",  replacement: "\\impliedby",       options: "mA" },
+    // { trigger: "<->", replacement: "\\leftrightarrow ", options: "mA" },
+    // { trigger: "->",  replacement: "\\to",              options: "mA" },
+    // { trigger: "!>",  replacement: "\\mapsto",          options: "mA" },
+    // { trigger: "=>",  replacement: "\\implies",         options: "mA" },  
+    // { trigger: "=<",  replacement: "\\impliedby",       options: "mA" },
 
-    { trigger: "and",    replacement: "\\cap",        options: "mA" },
-    { trigger: "orr",    replacement: "\\cup",        options: "mA" },
-    { trigger: "inn",    replacement: "\\in",         options: "mA" },
-    { trigger: "notin",  replacement: "\\not\\in",    options: "mA" },
-    { trigger: "\\\\\\", replacement: "\\setminus",   options: "mA" },
-    { trigger: "sub=",   replacement: "\\subseteq",   options: "mA" },
-    { trigger: "sup=",   replacement: "\\supseteq",   options: "mA" },
-    { trigger: "eset",   replacement: "\\emptyset",   options: "mA" },
-    { trigger: "set",    replacement: "\\{ $0 \\}$1", options: "mA" },
-    { trigger: "exists", replacement: "\\exists",     options: "mA", priority: 1 },
+    // { trigger: "and",    replacement: "\\cap",        options: "mA" },
+    // { trigger: "orr",    replacement: "\\cup",        options: "mA" },
+    // { trigger: "inn",    replacement: "\\in",         options: "mA" },
+    // { trigger: "notin",  replacement: "\\not\\in",    options: "mA" },
+    // { trigger: "\\\\\\", replacement: "\\setminus",   options: "mA" },
+    // { trigger: "sub=",   replacement: "\\subseteq",   options: "mA" },
+    // { trigger: "sup=",   replacement: "\\supseteq",   options: "mA" },
+    // { trigger: "eset",   replacement: "\\emptyset",   options: "mA" },
+    // { trigger: "set",    replacement: "\\{ $0 \\}$1", options: "mA" },
+    // { trigger: "exists", replacement: "\\exists",     options: "mA", priority: 1 },
 
 
-    // Limits, Derivatives and Integrals
-    // { trigger: "lim",          replacement: "\\lim_{{$0}\\to{$1}} $2",                                options: "m" },
-    // { trigger: /(?<!\\)int/,   replacement: "\\int",                                                  options: "rmA", priority: -1 },
-    // { trigger: "\\int",        replacement: "\\int$0 \\, \\mathrm{d}${1:x} $2",                       options: "m" },
-    // { trigger: "dint",         replacement: "\\int_{${0:0}}^{${1:1}} $2 \\, \\mathrm{d}${3:x} $4",    options: "mA" },
-    // { trigger: "oint",         replacement: "\\oint",                                                 options: "mA" },
-    // { trigger: "iint",         replacement: "\\iint",                                                 options: "mA" },
-    // { trigger: "iiint",        replacement: "\\iiint",                                                options: "mA" },
-    // { trigger: "oinf",         replacement: "\\int_{0}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2",        options: "mA" },
-    // { trigger: "infi",         replacement: "\\int_{-\\infty}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2", options: "mA" },
 
 
     // Trigonometry
@@ -499,48 +441,6 @@ export default [
     //         "$1"
     //     ].join("\n"),
     //     options: "t",
-    // },
-
-
-
-    // {
-    //     trigger: "tayl",
-    //     replacement: "${0:f}(${1:x} + ${2:h}) = ${0:f}(${1:x}) + ${0:f}'(${1:x})${2:h} + ${0:f}''(${1:x}) \\frac{${2:h}^{2}}{2!} + \\dots$3",
-    //     options: "mA",
-    //     description: "Taylor expansion"
-    // },
-
-    // {
-    //     trigger: /iden(\d)/,
-    //     replacement: (match) => {
-    //         const n = match[1];
-
-    //         let arr = [];
-    //         for (let j = 0; j < n; j++) {
-    //             arr[j] = [];
-    //             for (let i = 0; i < n; i++) { arr[j][i] = (i === j) ? 1 : 0; }
-    //         }
-
-    //         let output = arr.map(el => el.join(" & ")).join(" \\\\\n");
-    //         output = `\\begin{pmatrix}\n${output}\n\\end{pmatrix}`;
-
-    //         return output;
-    //     },
-    //     options: "mA",
-    //     description: "N x N identity matrix"
-    // },
-
-    // {
-    //     trigger: /(?<=(?:\n|^)[ \t]*>*)(?<marker>\d+[.)]|[-*+])(?<whitespace>[ \t]+)(?<text>.*)dm/,
-    //     replacement: (m) => {
-    //         const { whitespace, text, marker } = m.groups;
-    //         const firstLine = marker + whitespace + text;
-    //         const indent = " ".repeat(marker.length) + whitespace;
-    //         return `${firstLine}\n${indent}$$\n${indent}\t$0\n${indent}$$`;
-    //     },
-    //     options: "rtA",
-    //     priority: 2,
-    //     description: "Display math when in a list"
     // },
 
 ]
