@@ -3,6 +3,37 @@ export default [
     // MathJax Block
     { trigger: "$",  replacement: "$$0$$1",       options: "t", priority: 1 },
     { trigger: "$$", replacement: "$$\n$0\n$$$1", options: "t", priority: 2 },
+    
+    
+    // Text environment
+    { trigger: "text", replacement: "\\text{$0}$1", options: "mA" },
+    { trigger: "\"",   replacement: "\\text{$0}$1", options: "mA" },
+
+    // Text Font
+    { trigger: "tfnor", replacement: "\\textnormal{$0}$1", options: "mA", }, // Normal
+    { trigger: "tfrm",  replacement: "\\textrm{$0}$1",     options: "mA", }, // Roman
+    { trigger: "tfss",  replacement: "\\textsf{$0}$1",     options: "mA", }, // Sans Serif
+    { trigger: "tftt",  replacement: "\\texttt{$0}$1",     options: "mA", }, // Typewriter
+
+    { trigger: "tfit",  replacement: "\\textit{$0}$1",     options: "mA", }, // Italic
+    { trigger: "tfbf",  replacement: "\\textbf{$0}$1",     options: "mA", }, // Bold
+
+    // Math Font
+    { trigger: "mfrm",  replacement: "\\mathrm{$0}$1",     options: "mA", }, // Roman
+    { trigger: "mfsf",  replacement: "\\mathsf{$0}$1",     options: "mA", }, // Sans Serif
+    { trigger: "mftt",  replacement: "\\mathtt{$0}$1",     options: "mA", }, // Typewriter
+
+    { trigger: "mfit",  replacement: "\\mathit{$0}$1",     options: "mA", }, // Italic
+    { trigger: "mfbf",  replacement: "\\mathbf{$0}$1",     options: "mA", }, // Bold
+    { trigger: "mfcal", replacement: "\\mathcal{$0}$1",    options: "mA", }, // Calligraphic
+    { trigger: "mfbb",  replacement: "\\mathbb{$0}$1",     options: "mA", }, // Blackboard
+    { trigger: "mfrak", replacement: "\\mathfrak{$0}$1",   options: "mA", }, // Fraktur
+
+    // \bigr \Bigr \biggr \Biggr
+    { trigger: "bgr",   replacement: "\\bigr$0",  options: "m" },
+    { trigger: "bgrr",  replacement: "\\Bigr$0",  options: "m" },
+    { trigger: "bggr",  replacement: "\\biggr$0", options: "m" },
+    { trigger: "bggrr", replacement: "\\Biggr$0", options: "m" },
 
     // Greek letters
     { trigger: "@a",  replacement: "\\alpha",      options: "mA" },
@@ -19,36 +50,55 @@ export default [
     { trigger: ":D",  replacement: "\\varDelta",   options: "mA" },
     { trigger: "@e",  replacement: "\\epsilon",    options: "mA" },
     { trigger: ":e",  replacement: "\\varepsilon", options: "mA" },
+    { trigger: "@E",  replacement: "\\mathrm{E}",  options: "mA" },
+    { trigger: ":E",  replacement: "\\mathit{E}",  options: "mA" },
     { trigger: "@z",  replacement: "\\zeta",       options: "mA" },
+    { trigger: "@Z",  replacement: "\\mathrm{Z}",  options: "mA" },
+    { trigger: ":Z",  replacement: "\\mathit{Z}",  options: "mA" },
     { trigger: "@h",  replacement: "\\eta",        options: "mA" },
+    { trigger: "@H",  replacement: "\\mathrm{H}",  options: "mA" },
+    { trigger: ":H",  replacement: "\\mathit{H}",  options: "mA" },
     { trigger: "@th", replacement: "\\theta",      options: "mA" },
     { trigger: "@Th", replacement: "\\Theta",      options: "mA" },
     { trigger: ":th", replacement: "\\vartheta",   options: "mA" },
     { trigger: ":Th", replacement: "\\varTheta",   options: "mA" },
     { trigger: "@i",  replacement: "\\iota",       options: "mA" },
+    { trigger: "@I",  replacement: "\\mathrm{I}",  options: "mA" },
+    { trigger: ":I",  replacement: "\\mathit{I}",  options: "mA" },
     { trigger: "@k",  replacement: "\\kappa",      options: "mA" },
     { trigger: ":k",  replacement: "\\varkappa",   options: "mA" },
+    { trigger: "@K",  replacement: "\\mathrm{K}",  options: "mA" },
+    { trigger: ":K",  replacement: "\\mathit{K}",  options: "mA" },
     { trigger: "@l",  replacement: "\\lambda",     options: "mA" },
     { trigger: "@L",  replacement: "\\Lambda",     options: "mA" },
     { trigger: ":L",  replacement: "\\varLambda",  options: "mA" },
     { trigger: "@m",  replacement: "\\mu",         options: "mA" },
+    { trigger: "@M",  replacement: "\\mathrm{M}",  options: "mA" },
+    { trigger: ":M",  replacement: "\\mathit{M}",  options: "mA" },
     { trigger: "@n",  replacement: "\\nu",         options: "mA" },
+    { trigger: "@N",  replacement: "\\mathrm{N}",  options: "mA" },
+    { trigger: ":N",  replacement: "\\mathit{N}",  options: "mA" },
     { trigger: "@x",  replacement: "\\xi",         options: "mA" },
     { trigger: "@X",  replacement: "\\Xi",         options: "mA" },
     { trigger: ":X",  replacement: "\\varXi",      options: "mA" },
     { trigger: "@o",  replacement: "\\omicron",    options: "mA" },
     { trigger: "@O",  replacement: "\\mathrm{O}",  options: "mA" },
+    { trigger: ":O",  replacement: "\\mathit{O}",  options: "mA" },
     { trigger: "@pi", replacement: "\\pi",         options: "mA" },
     { trigger: "@Pi", replacement: "\\Pi",         options: "mA" },
     { trigger: ":pi", replacement: "\\varpi",      options: "mA" },
     { trigger: ":Pi", replacement: "\\varPi",      options: "mA" },
     { trigger: "@r",  replacement: "\\rho",        options: "mA" },
     { trigger: ":r",  replacement: "\\varrho",     options: "mA" },
+    { trigger: "@R",  replacement: "\\mathrm{P}",  options: "mA" },
+    { trigger: ":R",  replacement: "\\mathit{P}",  options: "mA" },
     { trigger: "@s",  replacement: "\\sigma",      options: "mA" },
     { trigger: "@S",  replacement: "\\Sigma",      options: "mA" },
     { trigger: ":s",  replacement: "\\varsigma",   options: "mA" },
     { trigger: ":S",  replacement: "\\varSigma",   options: "mA" },
     { trigger: "@t",  replacement: "\\tau",        options: "mA" },
+    { trigger: "@T",  replacement: "\\mathrm{T}",  options: "mA" },
+    { trigger: ":T",  replacement: "\\mathit{T}",  options: "mA" },
     { trigger: "@u",  replacement: "\\upsilon",    options: "mA" },
     { trigger: "@U",  replacement: "\\Upsilon",    options: "mA" },
     { trigger: ":U",  replacement: "\\varUpsilon", options: "mA" },
@@ -57,7 +107,11 @@ export default [
     { trigger: ":ph", replacement: "\\varphi",     options: "mA" },
     { trigger: ":Ph", replacement: "\\varPhi",     options: "mA" },
     { trigger: "@ch", replacement: "\\chi",        options: "mA" },
+    { trigger: "@Ch", replacement: "\\mathrm{X}",  options: "mA" },
+    { trigger: ":Ch", replacement: "\\mathit{X}",  options: "mA" },
     { trigger: "@ps", replacement: "\\psi",        options: "mA" },
+    { trigger: "@Ps", replacement: "\\Psi",        options: "mA" },
+    { trigger: ":Ps", replacement: "\\varPsi",     options: "mA" },
     { trigger: "@w",  replacement: "\\omega",      options: "mA" },
     { trigger: "@W",  replacement: "\\Omega",      options: "mA" },
     { trigger: ":W",  replacement: "\\varOmega",   options: "mA" },
@@ -67,6 +121,8 @@ export default [
     { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "m",  priority: 2 },
     { trigger: "__",  replacement: "_{$0}$1",     options: "mA", priority: 1 },
     { trigger: "___", replacement: "{$0}_{$1}$2", options: "m",  priority: 2 },
+
+
 
     // \begin{} \end{}
     { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]}\n$0\n\\end{[[0]]}", options: "MA" },
@@ -131,9 +187,6 @@ export default [
     { trigger: "bar",      replacement: "\\bar{$0}$1",      options: "m" },
     { trigger: "overline", replacement: "\\overline{$0}$1", options: "m" },
 
-    // Text environment
-    { trigger: "text", replacement: "\\text{$0}$1", options: "mA" },
-    { trigger: "\"",   replacement: "\\text{$0}$1", options: "mA" },
 
 
 
@@ -216,19 +269,6 @@ export default [
 
 
 
-    // Font
-    { trigger: "frm",  replacement: "\\mathrm{$0}$1",  options: "m", },
-    { trigger: "fbb",  replacement: "\\mathbb{$0}$1",  options: "m", },
-    { trigger: "fcal", replacement: "\\mathcal{$0}$1", options: "m", },
-    { trigger: "fbf",  replacement: "\\mathbf{$0}$1",  options: "m", },
-    // \bigr \Bigr \biggr \Biggr
-    { trigger: "bgr",   replacement: "\\bigr$0",  options: "m" },
-    { trigger: "bgrr",  replacement: "\\Bigr$0",  options: "m" },
-    { trigger: "bggr",  replacement: "\\biggr$0", options: "m" },
-    { trigger: "bggrr", replacement: "\\Biggr$0", options: "m" },
-
-
-
     // LaTeX-like Theorem & Equation Referencer
     { trigger: "axm",         replacement: "> [!axiom|${1:*}] $0\n> $2$3",       options: "t" },
     { trigger: "axiom",       replacement: "> [!axiom|${1:*}] $0\n> $2$3",       options: "t" },
@@ -242,6 +282,9 @@ export default [
     { trigger: "definition",  replacement: "> [!definition|${1:*}] $0\n> $2$3",  options: "t" },
     { trigger: "exm",         replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
     { trigger: "example",     replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
+
+
+
     // \tag{}
     { trigger: "tag", replacement: "\\tag{$0}$1", options: "m" },
 
