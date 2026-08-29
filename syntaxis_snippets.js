@@ -1,3 +1,15 @@
+const DELIMITER = [
+    { trigger_delim: "(", left_delim: "(", right_delim: ")" },
+    { trigger_delim: "[", left_delim: "[", right_delim: "]" },
+    { trigger_delim: "brack", left_delim: "\\lbrack", right_delim: "\\rbrack" },
+    { trigger_delim: "{", left_delim: "\\{", right_delim: "\\}" },
+    { trigger_delim: "brace", left_delim: "\\lbrace", right_delim: "\\rbrace" },
+    { trigger_delim: "|", left_delim: "|", right_delim: "|" },
+    { trigger_delim: "vert", left_delim: "\\lvert", right_delim: "\\rvert" },
+    { trigger_delim: "\|", left_delim: "\\|", right_delim: "\\|" },
+    { trigger_delim: "Vert", left_delim: "\\lVert", right_delim: "\\rVert" },
+];
+
 export default [
     
     // MathJax Block
