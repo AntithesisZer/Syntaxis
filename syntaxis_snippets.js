@@ -6,7 +6,11 @@ export default [
 
     // Greek letters
     { trigger: "@a",  replacement: "\\alpha",      options: "mA" },
+    { trigger: "@A",  replacement: "\\mathrm{A}",  options: "mA" },
+    { trigger: ":A",  replacement: "\\mathit{A}",  options: "mA" },
     { trigger: "@b",  replacement: "\\beta",       options: "mA" },
+    { trigger: "@B",  replacement: "\\mathrm{B}",  options: "mA" },
+    { trigger: ":B",  replacement: "\\mathit{B}",  options: "mA" },
     { trigger: "@g",  replacement: "\\gamma",      options: "mA" },
     { trigger: "@G",  replacement: "\\Gamma",      options: "mA" },
     { trigger: ":G",  replacement: "\\varGamma",   options: "mA" },
@@ -23,6 +27,7 @@ export default [
     { trigger: ":Th", replacement: "\\varTheta",   options: "mA" },
     { trigger: "@i",  replacement: "\\iota",       options: "mA" },
     { trigger: "@k",  replacement: "\\kappa",      options: "mA" },
+    { trigger: ":k",  replacement: "\\varkappa",   options: "mA" },
     { trigger: "@l",  replacement: "\\lambda",     options: "mA" },
     { trigger: "@L",  replacement: "\\Lambda",     options: "mA" },
     { trigger: ":L",  replacement: "\\varLambda",  options: "mA" },
