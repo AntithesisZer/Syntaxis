@@ -132,6 +132,11 @@ export default [
 
 
     // Delimiter
+    {
+        trigger: "",
+        replacement: "",
+        options: "mA",
+    },
 
     
     // \bigr \Bigr \biggr \Biggr
@@ -148,70 +153,63 @@ export default [
     { trigger: "___", replacement: "{$0}_{$1}$2", options: "mA", priority: 2 },
 
 
-    // \begin{} \end{}
-    { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]}\n$0\n\\end{[[0]]}", options: "MA" },
-    { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]} $0 \\end{[[0]]}",   options: "nA" },
-    // /left([{ /right)]}
-    {
-        trigger: /([\(\\[\\{\\<\\|]|lvert|lbrack)lr/,
-        replacement: (match) => {
-            const bracketConfig = {
-                "(":      { close: ")", left: "(",        right: ")" },
-                "[":      { close: "]", left: "[",        right: "]" },
-                "{":      { close: "}", left: "\\{",      right: "\\}" },
-                "<":      { close: ">", left: "\\langle", right: "\\rangle" },
-                "|":      { close: "|", left: "|",        right: "|" },
-                "lvert":  { close: "",  left: "\\lvert",  right: "\\rvert" },
-                "lbrack": { close: "",  left: "\\lbrack", right: "\\rbrack" },
-            };
-            const open = match[1];
-            const cfg = bracketConfig[open];
-            if (!cfg) return match[0]; 
+    // // \begin{} \end{}
+    // { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]}\n$0\n\\end{[[0]]}", options: "MA" },
+    // { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]} $0 \\end{[[0]]}",   options: "nA" },
+    // // /left([{ /right)]}
+    // {
+    //     trigger: /([\(\\[\\{\\<\\|]|lvert|lbrack)lr/,
+    //     replacement: (match) => {
+    //         const bracketConfig = {
+    //             "(":      { close: ")", left: "(",        right: ")" },
+    //             "[":      { close: "]", left: "[",        right: "]" },
+    //             "{":      { close: "}", left: "\\{",      right: "\\}" },
+    //             "<":      { close: ">", left: "\\langle", right: "\\rangle" },
+    //             "|":      { close: "|", left: "|",        right: "|" },
+    //             "lvert":  { close: "",  left: "\\lvert",  right: "\\rvert" },
+    //             "lbrack": { close: "",  left: "\\lbrack", right: "\\rbrack" },
+    //         };
+    //         const open = match[1];
+    //         const cfg = bracketConfig[open];
+    //         if (!cfg) return match[0]; 
 
-            const editor = app.workspace.activeEditor?.editor || app.workspace.getActiveViewOfType(Object)?.editor;
-            if (editor) {
-                const pos = editor.getCursor();
-                const nextChar = editor.getRange(pos, { line: pos.line, ch: pos.ch + 1 });
-                if (nextChar === cfg.close) {
-                    editor.replaceRange("", pos, { line: pos.line, ch: pos.ch + 1 });
-                }
-            }
+    //         const editor = app.workspace.activeEditor?.editor || app.workspace.getActiveViewOfType(Object)?.editor;
+    //         if (editor) {
+    //             const pos = editor.getCursor();
+    //             const nextChar = editor.getRange(pos, { line: pos.line, ch: pos.ch + 1 });
+    //             if (nextChar === cfg.close) {
+    //                 editor.replaceRange("", pos, { line: pos.line, ch: pos.ch + 1 });
+    //             }
+    //         }
 
-            return `\\left${cfg.left} $0 \\right${cfg.right}$1`;
-        },
-        options: "mA"
-    },
-    // Brackets
-    { trigger: "avg",   replacement: "\\langle $0 \\rangle $1", options: "mA" },
-    { trigger: "norm",  replacement: "\\lvert $0 \\rvert $1",   options: "mA", priority: 1 },
-    { trigger: "Norm",  replacement: "\\lVert $0 \\rVert $1",   options: "mA", priority: 1 },
-    { trigger: "ceil",  replacement: "\\lceil $0 \\rceil $1",   options: "mA" },
-    { trigger: "floor", replacement: "\\lfloor $0 \\rfloor $1", options: "mA" },
+    //         return `\\left${cfg.left} $0 \\right${cfg.right}$1`;
+    //     },
+    //     options: "mA"
+    // },
+
+    // // Brackets
+    // { trigger: "avg",   replacement: "\\langle $0 \\rangle $1", options: "mA" },
+    // { trigger: "norm",  replacement: "\\lvert $0 \\rvert $1",   options: "mA", priority: 1 },
+    // { trigger: "Norm",  replacement: "\\lVert $0 \\rVert $1",   options: "mA", priority: 1 },
+    // { trigger: "ceil",  replacement: "\\lceil $0 \\rceil $1",   options: "mA" },
+    // { trigger: "floor", replacement: "\\lfloor $0 \\rfloor $1", options: "mA" },
     
-    // { trigger: "mod", replacement: "|$0|$1",      options: "mA" },
+    // { trigger: "mod", replacement: "|$0|$1",      options: "mA"  },
     // { trigger: "(",   replacement: "(${VISUAL})", options: "mvA" },
     // { trigger: "[",   replacement: "[${VISUAL}]", options: "mvA" },
     // { trigger: "{",   replacement: "{${VISUAL}}", options: "mvA" },
-    { trigger: "(",   replacement: "($0)$1",      options: "mA" },
-    { trigger: "[",   replacement: "[$0]$1",      options: "mA" },
-    { trigger: "{",   replacement: "{$0}$1",      options: "mA" },
-    {
-        trigger: "vert",
-        replacement: "\\lvert $0 \\rvert$1",
-        options: "m"
-    }, {
-        trigger: "brack",
-        replacement: "\\lbrack $0 \\rbrack$1",
-        options: "m"
-    },
-
-
-
-    // bar overline
-    { trigger: "bar",      replacement: "\\bar{$0}$1",      options: "m" },
-    { trigger: "overline", replacement: "\\overline{$0}$1", options: "m" },
-
-
+    // { trigger: "(",   replacement: "($0)$1",      options: "mA" },
+    // { trigger: "[",   replacement: "[$0]$1",      options: "mA" },
+    // { trigger: "{",   replacement: "{$0}$1",      options: "mA" },
+    // {
+    //     trigger: "vert",
+    //     replacement: "\\lvert $0 \\rvert$1",
+    //     options: "m"
+    // }, {
+    //     trigger: "brack",
+    //     replacement: "\\lbrack $0 \\rbrack$1",
+    //     options: "m"
+    // },
 
 
     // Symbols
@@ -256,6 +254,7 @@ export default [
     { trigger: "set",    replacement: "\\{ $0 \\}$1", options: "mA" },
     { trigger: "exists", replacement: "\\exists",     options: "mA", priority: 1 },
 
+
     // Limits, Derivatives and Integrals
     { trigger: "lim",          replacement: "\\lim_{{$0}\\to{$1}} $2",                                options: "m" },
     { trigger: /(?<!\\)int/,   replacement: "\\int",                                                  options: "rmA", priority: -1 },
@@ -266,6 +265,7 @@ export default [
     { trigger: "iiint",        replacement: "\\iiint",                                                options: "mA" },
     { trigger: "oinf",         replacement: "\\int_{0}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2",        options: "mA" },
     { trigger: "infi",         replacement: "\\int_{-\\infty}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2", options: "mA" },
+
 
     // Trigonometry
     {
@@ -287,11 +287,6 @@ export default [
         priority: 1
     },
     
-    // Symbols
-    { trigger: "frac", replacement: "\\frac{$0}{$1}$2",        options: "m" },
-    { trigger: "sqrt", replacement: "\\sqrt\\[$1\\]{$0}$2",    options: "m" },
-
-
 
     // LaTeX-like Theorem & Equation Referencer
     { trigger: "axm",         replacement: "> [!axiom|${1:*}] $0\n> $2$3",       options: "t" },
@@ -308,10 +303,9 @@ export default [
     { trigger: "example",     replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
 
 
-
     // \tag{}
-    { trigger: "tag", replacement: "\\tag{$0}$1", options: "m" },
-
+    { trigger: "ntag", replacement: "\\notag",     options: "m" },
+    { trigger: "tag",  replacement: "\\tag{$0}$1", options: "m" },
 
 
     // // TikZJax
