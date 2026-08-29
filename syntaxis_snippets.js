@@ -8,10 +8,74 @@ const DELIMITER = [
     { trigger_delim: "vert", left_delim: "\\lvert", right_delim: "\\rvert" },
     { trigger_delim: "\|", left_delim: "\\|", right_delim: "\\|" },
     { trigger_delim: "Vert", left_delim: "\\lVert", right_delim: "\\rVert" },
+    { trigger_delim: "angle", left_delim: "\\langle", right_delim: "\\rangle" },
+    { trigger_delim: "slash", left_delim: "/", right_delim: "\\backslash" },
+    { trigger_delim: "ceil", left_delim: "\\lceil", right_delim: "\\rceil" },
+    { trigger_delim: "floor", left_delim: "\\lfloor", right_delim: "\\rfloor" },
+    { trigger_delim: "group", left_delim: "\\lgroup", right_delim: "\\rgroup" },
+    { trigger_delim: "moustache", left_delim: "\\lmoustache", right_delim: "\\rmoustache" },
 ];
+const MACRO_OP = "sum|prod|coprod|bigvee|bigwedge|bigcup|bigcap|bigsqcup|biguplus|bigodot|bigoplus|bigotimes|int|oint|iint|iiint|iiiint|idotsint";
+const FRACTION = "frac|dfrac|tfrac|cfrac|genfrac";
+const BINOMIAL = "binom|dbinom|tbinom";
+const ENV_TALL = "(?:[pPbBvV]?matrix|smallmatrix|cases|dcases|rcases|drcases|array|aligned|gathered|split)\\*?";
+const TALL_SYMBOLS = `\\\\(?:${MACRO_OP}|${FRACTION}|${BINOMIAL}|sqrt|begin\\{${ENV_TALL}\\})`;
+
+function escapeRegex(str) {
+    if (!str) return "";
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const generatedDelimiterSnippets = [];
+
+DELIMITER.forEach(({ trigger_delim, left_delim, right_delim }) => {
+    const leftDisplay = left_delim ? (left_delim.startsWith("\\") && left_delim.length > 2 ? `${left_delim} ` : left_delim) : "";
+    const rightDisplay = right_delim ? (right_delim.startsWith("\\") && right_delim.length > 2 ? ` ${right_delim}` : right_delim) : "";
+
+    generatedDelimiterSnippets.push({
+        trigger: trigger_delim,
+        replacement: `${leftDisplay}$0${rightDisplay}`,
+        options: "mA",
+        description: `Expand ${trigger_delim}`
+    });
+
+    generatedDelimiterSnippets.push({
+        trigger: trigger_delim,
+        replacement: `${leftDisplay}[[0]]$0${rightDisplay}`,
+        options: "mAV",
+        description: `Wrap selection with ${trigger_delim}`
+    });
+
+    const leftPat = escapeRegex(left_delim);
+    const rightPat = escapeRegex(right_delim);
+
+    let autoEnlargeRegex = "";
+    let lReplacement = left_delim ? `\\left${left_delim} ` : "\\left. ";
+    let rReplacement = right_delim ? ` \\right${right_delim}` : " \\right.";
+
+    if (left_delim && right_delim) {
+        autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!${leftPat}|${rightPat})[^\\n])*?${TALL_SYMBOLS}(?:(?!${leftPat}|${rightPat})[^\\n])*?)${rightPat}(?!\\s*\\\\right)`;
+    } else if (!left_delim && right_delim) {
+        autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!${rightPat})[^\\n$=])*?${TALL_SYMBOLS}(?:(?!${rightPat})[^\\n$])*?)${rightPat}(?!\\s*\\\\right)`;
+    } else if (left_delim && !right_delim) {
+        autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!${leftPat})[^\\n$=])*?${TALL_SYMBOLS}(?:(?!${leftPat})[^\\n$])*?)(?!\\s*\\\\right\\.)`;
+    }
+
+    if (autoEnlargeRegex) {
+        generatedDelimiterSnippets.push({
+            trigger: autoEnlargeRegex,
+            replacement: `${lReplacement}$1${rReplacement}`,
+            options: "rmA",
+            description: `Auto-enlarge delimiters for ${trigger_delim}`
+        });
+    }
+});
+
+
 
 export default [
-    
+    ...generatedDelimiterSnippets,
+
     // MathJax Block
     { trigger: "$",  replacement: "$$0$$1",       options: "t", priority: 1 },
     { trigger: "$$", replacement: "$$\n$0\n$$$1", options: "t", priority: 2 },
@@ -144,11 +208,11 @@ export default [
 
 
     // Delimiter
-    {
-        trigger: "",
-        replacement: "",
-        options: "mA",
-    },
+    // {
+    //     trigger: "",
+    //     replacement: "",
+    //     options: "mA",
+    // },
 
     
     // \bigr \Bigr \biggr \Biggr
@@ -228,8 +292,8 @@ export default [
     { trigger: "ooo",    replacement: "\\infty",                            options: "m" },
     // { trigger: "sum",    replacement: "\\sum",                              options: "m" },
     // { trigger: "prod",   replacement: "\\prod",                             options: "m" },
-    { trigger: "\\sum",  replacement: "\\sum_{${0:i}=${1:1}}^{${2:N}} $3",  options: "m" },
-    { trigger: "\\prod", replacement: "\\prod_{${0:i}=${1:1}}^{${2:N}} $3", options: "m" },
+    // { trigger: "\\sum",  replacement: "\\sum_{${0:i}=${1:1}}^{${2:N}} $3",  options: "m" },
+    // { trigger: "\\prod", replacement: "\\prod_{${0:i}=${1:1}}^{${2:N}} $3", options: "m" },
 
     { trigger: "+-",   replacement: "\\pm",       options: "mA" },
     { trigger: "-+",   replacement: "\\mp",       options: "mA" },
@@ -268,15 +332,15 @@ export default [
 
 
     // Limits, Derivatives and Integrals
-    { trigger: "lim",          replacement: "\\lim_{{$0}\\to{$1}} $2",                                options: "m" },
-    { trigger: /(?<!\\)int/,   replacement: "\\int",                                                  options: "rmA", priority: -1 },
-    { trigger: "\\int",        replacement: "\\int$0 \\, \\mathrm{d}${1:x} $2",                       options: "m" },
-    { trigger: "dint",         replacement: "\\int_{${0:0}}^{${1:1}} $2 \\, \\mathrm{d}${3:x} $4",    options: "mA" },
-    { trigger: "oint",         replacement: "\\oint",                                                 options: "mA" },
-    { trigger: "iint",         replacement: "\\iint",                                                 options: "mA" },
-    { trigger: "iiint",        replacement: "\\iiint",                                                options: "mA" },
-    { trigger: "oinf",         replacement: "\\int_{0}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2",        options: "mA" },
-    { trigger: "infi",         replacement: "\\int_{-\\infty}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2", options: "mA" },
+    // { trigger: "lim",          replacement: "\\lim_{{$0}\\to{$1}} $2",                                options: "m" },
+    // { trigger: /(?<!\\)int/,   replacement: "\\int",                                                  options: "rmA", priority: -1 },
+    // { trigger: "\\int",        replacement: "\\int$0 \\, \\mathrm{d}${1:x} $2",                       options: "m" },
+    // { trigger: "dint",         replacement: "\\int_{${0:0}}^{${1:1}} $2 \\, \\mathrm{d}${3:x} $4",    options: "mA" },
+    // { trigger: "oint",         replacement: "\\oint",                                                 options: "mA" },
+    // { trigger: "iint",         replacement: "\\iint",                                                 options: "mA" },
+    // { trigger: "iiint",        replacement: "\\iiint",                                                options: "mA" },
+    // { trigger: "oinf",         replacement: "\\int_{0}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2",        options: "mA" },
+    // { trigger: "infi",         replacement: "\\int_{-\\infty}^{\\infty} $0 \\, \\mathrm{d}${1:x} $2", options: "mA" },
 
 
     // Trigonometry
