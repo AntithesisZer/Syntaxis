@@ -4,6 +4,38 @@ export default [
     { trigger: "$",  replacement: "$$0$$1",       options: "t", priority: 1 },
     { trigger: "$$", replacement: "$$\n$0\n$$$1", options: "t", priority: 2 },
 
+    // Greek letters
+    { trigger: "@a",  replacement: "\\alpha",      options: "mA" },
+    { trigger: "@b",  replacement: "\\beta",       options: "mA" },
+    { trigger: "@g",  replacement: "\\gamma",      options: "mA" },
+    { trigger: "@G",  replacement: "\\Gamma",      options: "mA" },
+    { trigger: "@d",  replacement: "\\delta",      options: "mA" },
+    { trigger: "@D",  replacement: "\\Delta",      options: "mA" },
+    { trigger: "@e",  replacement: "\\epsilon",    options: "mA" },
+    { trigger: ":e",  replacement: "\\varepsilon", options: "mA" },
+    { trigger: "@z",  replacement: "\\zeta",       options: "mA" },
+    { trigger: "@t",  replacement: "\\theta",      options: "mA" },
+    { trigger: "@T",  replacement: "\\Theta",      options: "mA" },
+    { trigger: ":t",  replacement: "\\vartheta",   options: "mA" },
+    { trigger: "@i",  replacement: "\\iota",       options: "mA" },
+    { trigger: "@k",  replacement: "\\kappa",      options: "mA" },
+    { trigger: "@l",  replacement: "\\lambda",     options: "mA" },
+    { trigger: "@L",  replacement: "\\Lambda",     options: "mA" },
+    { trigger: "@s",  replacement: "\\sigma",      options: "mA" },
+    { trigger: "@S",  replacement: "\\Sigma",      options: "mA" },
+    { trigger: "@u",  replacement: "\\upsilon",    options: "mA" },
+    { trigger: "@U",  replacement: "\\Upsilon",    options: "mA" },
+    { trigger: "@o",  replacement: "\\omega",      options: "mA" },
+    { trigger: "@O",  replacement: "\\Omega",      options: "mA" },
+    { trigger: "ome", replacement: "\\omega",      options: "mA" },
+    { trigger: "Ome", replacement: "\\Omega",      options: "mA" },
+
+    // ^{} _{}
+    { trigger: "^^",  replacement: "^{$0}$1",     options: "mA", priority: 1 },
+    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "m",  priority: 2 },
+    { trigger: "__",  replacement: "_{$0}$1",     options: "mA", priority: 1 },
+    { trigger: "___", replacement: "{$0}_{$1}$2", options: "m",  priority: 2 },
+
     // \begin{} \end{}
     { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]}\n$0\n\\end{[[0]]}", options: "MA" },
     { trigger: /\\?([a-zA-Z]+)beg/, replacement: "\\begin{[[0]]} $0 \\end{[[0]]}",   options: "nA" },
@@ -62,11 +94,7 @@ export default [
     },
 
 
-    // ^{} _{}
-    { trigger: "^^",  replacement: "^{$0}$1",     options: "mA", priority: 1 },
-    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "m",  priority: 2 },
-    { trigger: "__",  replacement: "_{$0}$1",     options: "mA", priority: 1 },
-    { trigger: "___", replacement: "{$0}_{$1}$2", options: "m",  priority: 2 },
+
     // bar overline
     { trigger: "bar",      replacement: "\\bar{$0}$1",      options: "m" },
     { trigger: "overline", replacement: "\\overline{$0}$1", options: "m" },
@@ -75,31 +103,7 @@ export default [
     { trigger: "text", replacement: "\\text{$0}$1", options: "mA" },
     { trigger: "\"",   replacement: "\\text{$0}$1", options: "mA" },
 
-    // Greek letters
-    { trigger: "@a",  replacement: "\\alpha",      options: "mA" },
-    { trigger: "@b",  replacement: "\\beta",       options: "mA" },
-    { trigger: "@g",  replacement: "\\gamma",      options: "mA" },
-    { trigger: "@G",  replacement: "\\Gamma",      options: "mA" },
-    { trigger: "@d",  replacement: "\\delta",      options: "mA" },
-    { trigger: "@D",  replacement: "\\Delta",      options: "mA" },
-    { trigger: "@e",  replacement: "\\epsilon",    options: "mA" },
-    { trigger: ":e",  replacement: "\\varepsilon", options: "mA" },
-    { trigger: "@z",  replacement: "\\zeta",       options: "mA" },
-    { trigger: "@t",  replacement: "\\theta",      options: "mA" },
-    { trigger: "@T",  replacement: "\\Theta",      options: "mA" },
-    { trigger: ":t",  replacement: "\\vartheta",   options: "mA" },
-    { trigger: "@i",  replacement: "\\iota",       options: "mA" },
-    { trigger: "@k",  replacement: "\\kappa",      options: "mA" },
-    { trigger: "@l",  replacement: "\\lambda",     options: "mA" },
-    { trigger: "@L",  replacement: "\\Lambda",     options: "mA" },
-    { trigger: "@s",  replacement: "\\sigma",      options: "mA" },
-    { trigger: "@S",  replacement: "\\Sigma",      options: "mA" },
-    { trigger: "@u",  replacement: "\\upsilon",    options: "mA" },
-    { trigger: "@U",  replacement: "\\Upsilon",    options: "mA" },
-    { trigger: "@o",  replacement: "\\omega",      options: "mA" },
-    { trigger: "@O",  replacement: "\\Omega",      options: "mA" },
-    { trigger: "ome", replacement: "\\omega",      options: "mA" },
-    { trigger: "Ome", replacement: "\\Omega",      options: "mA" },
+
 
     // Symbols
     { trigger: "ooo",    replacement: "\\infty",                            options: "m" },
@@ -314,37 +318,37 @@ export default [
     //     description: "Taylor expansion"
     // },
 
-    {
-        trigger: /iden(\d)/,
-        replacement: (match) => {
-            const n = match[1];
+    // {
+    //     trigger: /iden(\d)/,
+    //     replacement: (match) => {
+    //         const n = match[1];
 
-            let arr = [];
-            for (let j = 0; j < n; j++) {
-                arr[j] = [];
-                for (let i = 0; i < n; i++) { arr[j][i] = (i === j) ? 1 : 0; }
-            }
+    //         let arr = [];
+    //         for (let j = 0; j < n; j++) {
+    //             arr[j] = [];
+    //             for (let i = 0; i < n; i++) { arr[j][i] = (i === j) ? 1 : 0; }
+    //         }
 
-            let output = arr.map(el => el.join(" & ")).join(" \\\\\n");
-            output = `\\begin{pmatrix}\n${output}\n\\end{pmatrix}`;
+    //         let output = arr.map(el => el.join(" & ")).join(" \\\\\n");
+    //         output = `\\begin{pmatrix}\n${output}\n\\end{pmatrix}`;
 
-            return output;
-        },
-        options: "mA",
-        description: "N x N identity matrix"
-    },
+    //         return output;
+    //     },
+    //     options: "mA",
+    //     description: "N x N identity matrix"
+    // },
 
-    {
-        trigger: /(?<=(?:\n|^)[ \t]*>*)(?<marker>\d+[.)]|[-*+])(?<whitespace>[ \t]+)(?<text>.*)dm/,
-        replacement: (m) => {
-            const { whitespace, text, marker } = m.groups;
-            const firstLine = marker + whitespace + text;
-            const indent = " ".repeat(marker.length) + whitespace;
-            return `${firstLine}\n${indent}$$\n${indent}\t$0\n${indent}$$`;
-        },
-        options: "rtA",
-        priority: 2,
-        description: "Display math when in a list"
-    },
+    // {
+    //     trigger: /(?<=(?:\n|^)[ \t]*>*)(?<marker>\d+[.)]|[-*+])(?<whitespace>[ \t]+)(?<text>.*)dm/,
+    //     replacement: (m) => {
+    //         const { whitespace, text, marker } = m.groups;
+    //         const firstLine = marker + whitespace + text;
+    //         const indent = " ".repeat(marker.length) + whitespace;
+    //         return `${firstLine}\n${indent}$$\n${indent}\t$0\n${indent}$$`;
+    //     },
+    //     options: "rtA",
+    //     priority: 2,
+    //     description: "Display math when in a list"
+    // },
 
 ]
