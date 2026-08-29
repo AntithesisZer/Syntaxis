@@ -2,11 +2,12 @@ const DELIMITER = [
     { trigger_delim: "(", left_delim: "(", right_delim: ")" },
     { trigger_delim: "[", left_delim: "[", right_delim: "]" },
     { trigger_delim: "brack", left_delim: "\\lbrack", right_delim: "\\rbrack" },
-    { trigger_delim: "{", left_delim: "\\{", right_delim: "\\}" },
+    { trigger_delim: "{", left_delim: "{", right_delim: "}" },
+    { trigger_delim: "\\{", left_delim: "\\{", right_delim: "\\}" },
     { trigger_delim: "brace", left_delim: "\\lbrace", right_delim: "\\rbrace" },
     { trigger_delim: "|", left_delim: "|", right_delim: "|" },
     { trigger_delim: "vert", left_delim: "\\lvert", right_delim: "\\rvert" },
-    { trigger_delim: "\|", left_delim: "\\|", right_delim: "\\|" },
+    { trigger_delim: "\\|", left_delim: "\\|", right_delim: "\\|" },
     { trigger_delim: "Vert", left_delim: "\\lVert", right_delim: "\\rVert" },
     { trigger_delim: "angle", left_delim: "\\langle", right_delim: "\\rangle" },
     { trigger_delim: "slash", left_delim: "/", right_delim: "\\backslash" },
@@ -34,15 +35,15 @@ DELIMITER.forEach(({ trigger_delim, left_delim, right_delim }) => {
 
     generatedDelimiterSnippets.push({
         trigger: trigger_delim,
-        replacement: `${leftDisplay}$0${rightDisplay}`,
-        options: "mA",
+        replacement: `${leftDisplay}$0${rightDisplay}$1`,
+        options: "m",
         description: `Expand ${trigger_delim}`
     });
 
     generatedDelimiterSnippets.push({
         trigger: trigger_delim,
-        replacement: `${leftDisplay}[[0]]$0${rightDisplay}`,
-        options: "mAV",
+        replacement: `${leftDisplay}[[0]]$0${rightDisplay}$1`,
+        options: "mV",
         description: `Wrap selection with ${trigger_delim}`
     });
 
@@ -64,8 +65,8 @@ DELIMITER.forEach(({ trigger_delim, left_delim, right_delim }) => {
     if (autoEnlargeRegex) {
         generatedDelimiterSnippets.push({
             trigger: autoEnlargeRegex,
-            replacement: `${lReplacement}$1${rReplacement}`,
-            options: "rmA",
+            replacement: `${lReplacement}$0${rReplacement}$1`,
+            options: "rm",
             description: `Auto-enlarge delimiters for ${trigger_delim}`
         });
     }
@@ -206,14 +207,6 @@ export default [
     { trigger: "@W",  replacement: "\\Omega",      options: "mA" },
     { trigger: ":W",  replacement: "\\varOmega",   options: "mA" },
 
-
-    // Delimiter
-    // {
-    //     trigger: "",
-    //     replacement: "",
-    //     options: "mA",
-    // },
-
     
     // \bigr \Bigr \biggr \Biggr
     { trigger: "bgr",   replacement: "\\bigr$0",  options: "mA" },
@@ -223,10 +216,44 @@ export default [
 
 
     // ^{} _{}
-    { trigger: "^^",  replacement: "^{$0}$1",     options: "mA", priority: 1 },
-    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "mA", priority: 2 },
-    { trigger: "__",  replacement: "_{$0}$1",     options: "mA", priority: 1 },
-    { trigger: "___", replacement: "{$0}_{$1}$2", options: "mA", priority: 2 },
+    { trigger: "^^",  replacement: "^{$0}$1",     options: "m", priority: 1 },
+    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "m", priority: 2 },
+    { trigger: "__",  replacement: "_{$0}$1",     options: "m", priority: 1 },
+    { trigger: "___", replacement: "{$0}_{$1}$2", options: "m", priority: 2 },
+
+
+    // Marco-operators
+    { trigger: "*sum",       replacement: "\\sum$0",       options: "m" },
+    { trigger: "*prod",      replacement: "\\prod$0",      options: "m" },
+    { trigger: "*coprod",    replacement: "\\coprod$0",    options: "m" },
+    { trigger: "*bigvee",    replacement: "\\bigvee$0",    options: "m" },
+    { trigger: "*bigwedge",  replacement: "\\bigwedge$0",  options: "m" },
+    { trigger: "*bigcup",    replacement: "\\bigcup$0",    options: "m" },
+    { trigger: "*bigcap",    replacement: "\\bigcap$0",    options: "m" },
+    { trigger: "*bigsqcup",  replacement: "\\bigsqcup$0",  options: "m" },
+    { trigger: "*bigplus",   replacement: "\\bigplus$0",   options: "m" },
+    { trigger: "*bigodot",   replacement: "\\bigodot$0",   options: "m" },
+    { trigger: "*bigoplus",  replacement: "\\bigoplus$0",  options: "m" },
+    { trigger: "*bigotimes", replacement: "\\bigotimes$0", options: "m" },
+    { trigger: "*int",       replacement: "\\int$0",       options: "m" },
+    { trigger: "*oint",      replacement: "\\oint$0",      options: "m" },
+    { trigger: "*iint",      replacement: "\\iint$0",      options: "m" },
+    { trigger: "*iiint",     replacement: "\\iiint$0",     options: "m" },
+    { trigger: "*iiiint",    replacement: "\\iiiint$0",    options: "m" },
+    { trigger: "*idotsint",  replacement: "\\idotsint$0",  options: "m" },
+
+    // Fractions
+    { trigger: "frac",    replacement: "\\frac{$0}{$1}$2",                        options: "m" },
+    { trigger: "dfrac",   replacement: "\\dfrac{$0}{$1}$2",                       options: "m" },
+    { trigger: "tfrac",   replacement: "\\tfrac{$0}{$1}$2",                       options: "m" },
+    { trigger: "cfrac",   replacement: "\\cfrac[$2]{$0}{$1}$3",                   options: "m" },
+    { trigger: "genfrac", replacement: "\\genfrac{$4}{$5}{$3}{${2:0}}{$0}{$1}$6", options: "m" },
+
+    // Binomials
+    { trigger: "binom",  replacement: "\\binom{$0}{$1}$2",  options: "m" },
+    { trigger: "dbinom", replacement: "\\dbinom{$0}{$1}$2", options: "m" },
+    { trigger: "tbinom", replacement: "\\tbinom{$0}{$1}$2", options: "m" },
+
 
 
     // // \begin{} \end{}
@@ -289,11 +316,7 @@ export default [
 
 
     // Symbols
-    { trigger: "ooo",    replacement: "\\infty",                            options: "m" },
-    // { trigger: "sum",    replacement: "\\sum",                              options: "m" },
-    // { trigger: "prod",   replacement: "\\prod",                             options: "m" },
-    // { trigger: "\\sum",  replacement: "\\sum_{${0:i}=${1:1}}^{${2:N}} $3",  options: "m" },
-    // { trigger: "\\prod", replacement: "\\prod_{${0:i}=${1:1}}^{${2:N}} $3", options: "m" },
+    { trigger: "ooo", replacement: "\\infty", options: "m" },
 
     { trigger: "+-",   replacement: "\\pm",       options: "mA" },
     { trigger: "-+",   replacement: "\\mp",       options: "mA" },

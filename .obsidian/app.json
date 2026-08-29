@@ -1,6 +1,6 @@
 {
   "defaultViewMode": "preview",
-  "spellcheck": true,
+  "spellcheck": false,
   "vimMode": false,
   "newFileLocation": "folder",
   "newFileFolderPath": "uncategorized_notes",
@@ -17,5 +17,6 @@
     "downscalePercent": 100
   },
   "autoPairMarkdown": false,
-  "promptDelete": false
+  "promptDelete": false,
+  "autoPairBrackets": false
 }
