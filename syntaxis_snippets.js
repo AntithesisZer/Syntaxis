@@ -14,28 +14,42 @@ export default [
     { trigger: "tfrm",  replacement: "\\textrm{$0}$1",     options: "mA", }, // Roman
     { trigger: "tfss",  replacement: "\\textsf{$0}$1",     options: "mA", }, // Sans Serif
     { trigger: "tftt",  replacement: "\\texttt{$0}$1",     options: "mA", }, // Typewriter
-
-    { trigger: "tfit",  replacement: "\\textit{$0}$1",     options: "mA", }, // Italic
+    // { trigger: "tfmd",  replacement: "\\textmd{$0}$1",     options: "mA", }, // Medium
     { trigger: "tfbf",  replacement: "\\textbf{$0}$1",     options: "mA", }, // Bold
-
+    { trigger: "tfup",  replacement: "\\textup{$0}$1",     options: "mA", }, // Upright
+    { trigger: "tfit",  replacement: "\\textit{$0}$1",     options: "mA", }, // Italic
+    // { trigger: "tfsl",  replacement: "\\textsl{$0}$1",     options: "mA", }, // Slanted
+    // { trigger: "tfsc",  replacement: "\\textsc{$0}$1",     options: "mA", }, // Small Caps
     // Math Font
+    { trigger: "mfnor", replacement: "\\mathnormal{$0}$1", options: "mA", }, // Normal
     { trigger: "mfrm",  replacement: "\\mathrm{$0}$1",     options: "mA", }, // Roman
     { trigger: "mfsf",  replacement: "\\mathsf{$0}$1",     options: "mA", }, // Sans Serif
     { trigger: "mftt",  replacement: "\\mathtt{$0}$1",     options: "mA", }, // Typewriter
-
-    { trigger: "mfit",  replacement: "\\mathit{$0}$1",     options: "mA", }, // Italic
+    // { trigger: "mfmd",  replacement: "\\mathmd{$0}$1",     options: "mA", }, // Medium
     { trigger: "mfbf",  replacement: "\\mathbf{$0}$1",     options: "mA", }, // Bold
+    { trigger: "mfbm",  replacement: "\\boldsymbol{$0}$1", options: "mA", }, // Bold Symbol
+    { trigger: "mfup",  replacement: "\\mathup{$0}$1",     options: "mA", }, // Upright
+    { trigger: "mfit",  replacement: "\\mathit{$0}$1",     options: "mA", }, // Italic
+    // { trigger: "mfsl",  replacement: "\\mathsl{$0}$1",     options: "mA", }, // Slanted
+    // { trigger: "mfsc",  replacement: "\\mathsc{$0}$1",     options: "mA", }, // Small Caps
     { trigger: "mfcal", replacement: "\\mathcal{$0}$1",    options: "mA", }, // Calligraphic
     { trigger: "mfbb",  replacement: "\\mathbb{$0}$1",     options: "mA", }, // Blackboard
     { trigger: "mfrak", replacement: "\\mathfrak{$0}$1",   options: "mA", }, // Fraktur
 
-    // \bigr \Bigr \biggr \Biggr
-    { trigger: "bgr",   replacement: "\\bigr$0",  options: "m" },
-    { trigger: "bgrr",  replacement: "\\Bigr$0",  options: "m" },
-    { trigger: "bggr",  replacement: "\\biggr$0", options: "m" },
-    { trigger: "bggrr", replacement: "\\Biggr$0", options: "m" },
+    // Font Size
+    { trigger: "tiny",       replacement: "{\\tiny $0}$1",         options: "mA" }, // tiny font
+    { trigger: "scriptsz",   replacement: "{\\scriptsize $0}$1",   options: "mA" }, // very small font
+    // { trigger: "footnotesz", replacement: "{\\footnotesize $0}$1", options: "mA" }, // quite small font
+    { trigger: "small",      replacement: "{\\small $0}$1",        options: "mA" }, // small font
+    { trigger: "normalsz",   replacement: "{\\normalsize $0}$1",   options: "mA" }, // normal font
+    { trigger: "large",      replacement: "{\\large $0}$1",        options: "mA" }, // large font
+    { trigger: "Large",      replacement: "{\\Large $0}$1",        options: "mA" }, // larger font
+    { trigger: "LARGE",      replacement: "{\\LARGE $0}$1",        options: "mA" }, // very large font
+    { trigger: "huge",       replacement: "{\\huge $0}$1",         options: "mA" }, // huge font
+    { trigger: "Huge",       replacement: "{\\Huge $0}$1",         options: "mA" }, // hugest font
 
-    // Greek letters
+
+    // Greek Letters
     { trigger: "@a",  replacement: "\\alpha",      options: "mA" },
     { trigger: "@A",  replacement: "\\mathrm{A}",  options: "mA" },
     { trigger: ":A",  replacement: "\\mathit{A}",  options: "mA" },
@@ -116,12 +130,22 @@ export default [
     { trigger: "@W",  replacement: "\\Omega",      options: "mA" },
     { trigger: ":W",  replacement: "\\varOmega",   options: "mA" },
 
+
+    // Delimiter
+
+    
+    // \bigr \Bigr \biggr \Biggr
+    { trigger: "bgr",   replacement: "\\bigr$0",  options: "mA" },
+    { trigger: "bgrr",  replacement: "\\Bigr$0",  options: "mA" },
+    { trigger: "bggr",  replacement: "\\biggr$0", options: "mA" },
+    { trigger: "bggrr", replacement: "\\Biggr$0", options: "mA" },
+
+
     // ^{} _{}
     { trigger: "^^",  replacement: "^{$0}$1",     options: "mA", priority: 1 },
-    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "m",  priority: 2 },
+    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "mA", priority: 2 },
     { trigger: "__",  replacement: "_{$0}$1",     options: "mA", priority: 1 },
-    { trigger: "___", replacement: "{$0}_{$1}$2", options: "m",  priority: 2 },
-
+    { trigger: "___", replacement: "{$0}_{$1}$2", options: "mA", priority: 2 },
 
 
     // \begin{} \end{}
