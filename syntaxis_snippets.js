@@ -246,25 +246,12 @@ export default [
     { trigger: "___", replacement: "{$0}_{$1}$2", options: "m", priority: 2 },
 
 
-    // Marco-operators
-    { trigger: "*sum",       replacement: "\\sum$0",       options: "m" },
-    { trigger: "*prod",      replacement: "\\prod$0",      options: "m" },
-    { trigger: "*coprod",    replacement: "\\coprod$0",    options: "m" },
-    { trigger: "*bigvee",    replacement: "\\bigvee$0",    options: "m" },
-    { trigger: "*bigwedge",  replacement: "\\bigwedge$0",  options: "m" },
-    { trigger: "*bigcup",    replacement: "\\bigcup$0",    options: "m" },
-    { trigger: "*bigcap",    replacement: "\\bigcap$0",    options: "m" },
-    { trigger: "*bigsqcup",  replacement: "\\bigsqcup$0",  options: "m" },
-    { trigger: "*bigplus",   replacement: "\\bigplus$0",   options: "m" },
-    { trigger: "*bigodot",   replacement: "\\bigodot$0",   options: "m" },
-    { trigger: "*bigoplus",  replacement: "\\bigoplus$0",  options: "m" },
-    { trigger: "*bigotimes", replacement: "\\bigotimes$0", options: "m" },
-    { trigger: "*int",       replacement: "\\int$0",       options: "m" },
-    { trigger: "*oint",      replacement: "\\oint$0",      options: "m" },
-    { trigger: "*iint",      replacement: "\\iint$0",      options: "m" },
-    { trigger: "*iiint",     replacement: "\\iiint$0",     options: "m" },
-    { trigger: "*iiiint",    replacement: "\\iiiint$0",    options: "m" },
-    { trigger: "*idotsint",  replacement: "\\idotsint$0",  options: "m" },
+    // // Marco-operators
+    {
+        trigger: "\\*(${MACRO_OP})",
+        replacement: (match) => `\\${match[1]}$0`,
+        options: "rm"
+    },
 
     // Fractions
     { trigger: "frac",    replacement: "\\frac{$0}{$1}$2",                        options: "m" },
@@ -274,16 +261,18 @@ export default [
     { trigger: "genfrac", replacement: "\\genfrac{$4}{$5}{$3}{${2:0}}{$0}{$1}$6", options: "m" },
 
     // Binomials
-    { trigger: "binom",  replacement: "\\binom{$0}{$1}$2",  options: "m" },
-    { trigger: "dbinom", replacement: "\\dbinom{$0}{$1}$2", options: "m" },
-    { trigger: "tbinom", replacement: "\\tbinom{$0}{$1}$2", options: "m" },
+    {
+        trigger: "(${BINOMIAL})",
+        replacement: (match) => `\\${match[1]}{$0}{$1}$2`,
+        options: "rm"
+    },
 
     // Square Roots
     { trigger: "*sqrt", replacement: "\\sqrt{$0}$1",     options: "m" },
     { trigger: "sqrt",  replacement: "\\sqrt[$0]{$1}$2", options: "m" },
 
 
-    // ENV
+    // ENVs
     {
         trigger: "(${ENV_ALIGN}|${ENV_MATRIX}|${ENV_CASES}|${ENV_GATHMULT}|${ENV_OTHER})beg",
         replacement: (match) => `\\begin{${match[1]}}\n$0\n\\end{${match[1]}}`,
@@ -295,9 +284,46 @@ export default [
     },
 
 
-    // \tag{}
+    // Tag
     { trigger: "ntag", replacement: "\\notag",     options: "m" },
     { trigger: "tag",  replacement: "\\tag{$0}$1", options: "m" },
+
+
+    // Normal Accent Mark
+    {
+        trigger: "(hat|check|tilde|acute|grave|breve|bar|vec|mathring|dot|ddot|dddot|ddddot|widehat|widetilde|wideparen)",
+        replacement: (match) => `\\${match[1]}{$0}`,
+        options: "rm"
+    },
+
+    // Arrows with superscripts and subscripts
+    {
+        trigger: "xarr(l|r)",
+        replacement: (match) => {
+            const dirMap = {
+                "l": "leftarrow",
+                "r": "rightarrow"
+            };
+            return `\\x${dirMap[match[1]]}[$1]{$0}$2`;
+        },
+        options: "rm"
+    },
+
+    // Over & Under Arrows
+    {
+        trigger: "arr(o|u)(lr|l|r)",
+        replacement: (match) => {
+            const pos = match[1] === "o" ? "over" : "under";
+            const dirMap = {
+                "l": "leftarrow",
+                "r": "rightarrow",
+                "lr": "leftrightarrow"
+            };
+            return `\\${pos}${dirMap[match[2]]}{$0}$1`;
+        },
+        options: "rm"
+    },
+
 
 
     // // Symbols
@@ -378,8 +404,12 @@ export default [
     },
 
     // Operators with upper and lower limits
+    {
+        trigger: "\\*(lim|limsup|liminf|sup|inf|max|min|det|Pr|gcd)",
+        replacement: (match) => `\\${match[1]}$0`,
+        options: "rm"
+    },
 
-    
 
     // Custom Operators
     { trigger: "declareop",  replacement: "\\DeclareMathOperator{$0}{$1}$2",  options: "mA" },
