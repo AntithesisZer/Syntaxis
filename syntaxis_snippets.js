@@ -269,6 +269,13 @@ export default [
     { trigger: "*sqrt", replacement: "\\sqrt{$0}$1",     options: "m" },
     { trigger: "sqrt",  replacement: "\\sqrt[$0]{$1}$2", options: "m" },
 
+    // Vector
+    {
+        trigger: "(?<![\\\\])(c|s)vec",
+        replacement: (match) => (match[1] === "c" ? "\\boldsymbol{$0}$1" : "\\overrightarrow{$0}$1"),
+        options: "rmA"
+    },
+
     // Domain, Image, Range
     {
         trigger: "(domain|image|range)",
