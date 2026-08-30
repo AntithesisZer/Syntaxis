@@ -418,27 +418,68 @@ export default [
 
 
     // physics
-
-// // 1. 输入 dd 展开为带默认值 x 的一阶导数
-// {
-//   trigger: "dd",
-//   replacement: "\\dd{${1:x}}$0",
-//   options: "mA"
-// },
-
-// // 2. 连续快速输入 ddd（覆盖默认值产生 \dd{d} 时），自动重置为高阶导数
-// {
-//   trigger: "\\\\dd\\{d\\}",
-//   replacement: "\\dd[${1:2}]{${2:x}}$0",
-//   options: "rmA"
-// },
-
-// // 3. 内容已修改时（如 \dd{y}），在括号后按 d 自动迁移内容升级为高阶导数
-// {
-//   trigger: "\\\\dd\\{([^}]+)\\}d",
-//   replacement: (match) => `\\dd[\${1:2}]{${match[1]}}\$0`,
-//   options: "rmA"
-// },
+    {
+        trigger: /(?<!\\)(abs|norm|order)/,
+        replacement: "\\[[0]]{$0}$1",
+        options: "rmA"
+    },
+    {
+        trigger: /(?<!\\)(comm|acomm|pb)/,
+        replacement: "\\[[0]]{$0}{$1}$2",
+        options: "rmA"
+    },
+    {
+        trigger: /(?<!\\)(eval)/,
+        replacement: "\\[[0]]{$0}_{$1}^{$2}$3",
+        options: "rmA"
+    },
+    // 变分
+    {
+        trigger: "(\\*vd|vdd|vd)",
+        replacement: (match) => {
+            if (match[1] === "*vd") return "\\var$0";
+            if (match[1] === "vdd") return "\\var[$0]{$1}$2";
+            return "\\var{$0}$1";
+        },
+        options: "rm"
+    },
+    // 偏微分
+    {
+        trigger: "(\\*pd|pdd|pd)",
+        replacement: (match) => {
+            if (match[1] === "*pd") return "\\partial$0";
+            if (match[1] === "pdd") return "\\partial^{$0}{$1}$2";
+            return "\\partial{$0}$1";
+        },
+        options: "rm"
+    },
+    // 微分
+    {
+        trigger: "(\\*dd|ddd|dd)",
+        replacement: (match) => {
+            if (match[1] === "*dd") return "\\dd$0";
+            if (match[1] === "ddd") return "\\dd[$0]{$1}$2";
+            return "\\dd{$0}$1";
+        },
+        options: "rm"
+    },
+    // 全微分、偏导数
+    {
+        trigger: "(\\*pdvv|\\*pdv|pdvv|pdv|\\*dv|dvv|dv)",
+        replacement: (match) => {
+            const map = {
+                "*dv":   "dv*{$0}{$1}$2",
+                "dv":    "dv{$0}{$1}$2",
+                "dvv":   "dv[$0]{$1}{$2}$3",
+                "*pdv":  "pdv*{$0}{$1}$2",
+                "*pdvv": "pdv*{$0}{$1}{$2}$3",
+                "pdv":   "pdv{$0}{$1}$2",
+                "pdvv":  "pdv[$0]{$1}{$2}$3"
+            };
+            return "\\" + map[match[1]];
+        },
+        options: "rm"
+    },
     
 
 
