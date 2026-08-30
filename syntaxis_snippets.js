@@ -240,10 +240,8 @@ export default [
 
 
     // ^{} _{}
-    { trigger: "^^",  replacement: "^{$0}$1",     options: "m", priority: 1 },
-    { trigger: "^^^", replacement: "{$0}^{$1}$2", options: "m", priority: 2 },
-    { trigger: "__",  replacement: "_{$0}$1",     options: "m", priority: 1 },
-    { trigger: "___", replacement: "{$0}_{$1}$2", options: "m", priority: 2 },
+    { trigger: "^^",  replacement: "^{$0}$1",     options: "mA" },
+    { trigger: "__",  replacement: "_{$0}$1",     options: "mA" },
 
 
     // Marco-operators
@@ -413,6 +411,11 @@ export default [
         trigger: "\\*(lim|limsup|liminf|sup|inf|max|min|det|Pr|gcd)",
         replacement: (match) => `\\${match[1]}$0`,
         options: "rm"
+    },
+    {
+        trigger: "(?<![a-zA-Z\\\\])lim",
+        replacement: "\\lim_{{$0}\\to{$1}}$2",
+        options: "rmA"
     },
 
 
