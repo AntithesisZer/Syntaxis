@@ -5,6 +5,7 @@ const DELIMITER_PAIRS = [
     { trigger_delim: "{", left_delim: "{", right_delim: "}" },
     { trigger_delim: "\\{", left_delim: "\\{", right_delim: "\\}" },
     { trigger_delim: "brace", left_delim: "\\lbrace", right_delim: "\\rbrace" },
+    { trigger_delim: "<", left_delim: "<", right_delim: ">" },
     { trigger_delim: "|", left_delim: "|", right_delim: "|" },
     { trigger_delim: "vert", left_delim: "\\lvert", right_delim: "\\rvert" },
     { trigger_delim: "\\|", left_delim: "\\|", right_delim: "\\|" },
@@ -77,6 +78,7 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 export default [
     ...generatedDelimiterSnippets,
 
+
     // MathJax Block
     { trigger: "$",  replacement: "$$0$$1",       options: "t", priority: 1 },
     { trigger: "$$", replacement: "$$\n$0\n$$$1", options: "t", priority: 2 },
@@ -85,6 +87,7 @@ export default [
     // Text environment
     { trigger: "text", replacement: "\\text{$0}$1", options: "mA" },
     { trigger: "\"",   replacement: "\\text{$0}$1", options: "mA" },
+
 
     // Text Font
     { trigger: "tfnor", replacement: "\\textnormal{$0}$1", options: "mA", }, // Normal
@@ -210,7 +213,7 @@ export default [
     
     // Tall Delimiters
     {
-        trigger: "(bgr|bgrr|bggr|bggrr)-(${DELIMITER})",
+        trigger: "(bgr|bgrr|bggr|bggrr)(${DELIM_CHARACTER})",
         replacement: (match) => {
             const sizeMap = {
                 "bgr": "\\bigr",
@@ -219,6 +222,18 @@ export default [
                 "bggrr": "\\Biggr"
             };
             return `${sizeMap[match[1]]}{${match[2]}}$0`;
+        },
+        options: "rmA"
+    }, {
+        trigger: "(bgr|bgrr|bggr|bggrr)(${DELIM_COMMAND})",
+        replacement: (match) => {
+            const sizeMap = {
+                "bgr": "\\bigr",
+                "bgrr": "\\Bigr",
+                "bggr": "\\biggr",
+                "bggrr": "\\Biggr"
+            };
+            return `${sizeMap[match[1]]}{\\${match[2]}}$0`;
         },
         options: "rmA"
     },

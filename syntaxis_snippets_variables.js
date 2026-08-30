@@ -1,9 +1,16 @@
 export default {
-    "${DELIMITER}": "(?:\\(|lvert)",
-    "${DELIM}": "(?:\\(|\\[)",
+    "${DELIM_CHARACTER}": "(?:\\(|\\)|\\[|\\]|\\{|\\}|<|>|\\|)",
+    "${DELIM_COMMAND}":   "(?:lbrack|rbrack|lbrace|rbrace|lvert|rvert|lVert|rVert|langle|rangle|lslash|rslash|lceil|rceil|lfloor|rfloor|lgroup|rgroup|lmoustache|rmoustache)",
+    
     "${MACRO_OP}": "(?:sum|prod|coprod|bigvee|bigwedge|bigcup|bigcap|bigsqcup|biguplus|bigodot|bigoplus|bigotimes|int|oint|iint|iiint|iiiint|idotsint)",
     "${FRACTION}": "(?:frac|dfrac|tfrac|cfrac|genfrac)",
     "${BINOMIAL}": "(?:binom|dbinom|tbinom)",
+
+    "${ENV_ALIGN}":    "(?:align|aligned|flalign)",
+    "${ENV_MATRIX}":   "(?:matrix|pmatrix|bmatrix|Bmatrix|vmatrix|Vmatrix|smallmatrix)",
+    "${ENV_CASES}":    "(?:cases|dcases|rcases|drcases)",
+    "${ENV_GATHMULT}": "(?:gather|gathered|multline|multlined|split)",
+    "${ENV_OTHER}":    "(?:equation)",
 }
 
 // export default {
