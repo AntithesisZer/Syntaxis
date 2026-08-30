@@ -246,7 +246,7 @@ export default [
     { trigger: "___", replacement: "{$0}_{$1}$2", options: "m", priority: 2 },
 
 
-    // // Marco-operators
+    // Marco-operators
     {
         trigger: "\\*(${MACRO_OP})",
         replacement: (match) => `\\${match[1]}$0`,
@@ -270,6 +270,20 @@ export default [
     // Square Roots
     { trigger: "*sqrt", replacement: "\\sqrt{$0}$1",     options: "m" },
     { trigger: "sqrt",  replacement: "\\sqrt[$0]{$1}$2", options: "m" },
+
+    // Domain, Image, Range
+    {
+        trigger: "(domain|image|range)",
+        replacement: (match) => {
+            const map = {
+                "domain": "dom",
+                "image": "im",
+                "range": "ran"
+            };
+            return `\\mathrm{${map[match[1]]}}($0)$1`;
+        },
+        options: "rm"
+    },
 
 
     // ENVs
@@ -355,29 +369,6 @@ export default [
 
     // Symbols
     { trigger: "ooo", replacement: "\\infty", options: "m" },
-// 统一匹配 c*** (\cdot), c**** (\cdots), *** (\dot), **** (\dots)
-{
-  trigger: "(?<![a-zA-Z\\\\])(c)?(\\*\\*\\*\\*|\\*\\*\\*)",
-  replacement: (match) => {
-    const isC = match[1] === "c";
-    const isFour = match[2] === "****";
-
-    if (isC) {
-      return isFour ? "\\cdots$0" : "\\cdot$0";
-    }
-    return isFour ? "\\dots$0" : "\\dot$0";
-  },
-  options: "rm"
-},
-
-
-    // { trigger: "\\\\\\", replacement: "\\setminus",   options: "mA" },
-    // { trigger: "sub=",   replacement: "\\subseteq",   options: "mA" },
-    // { trigger: "sup=",   replacement: "\\supseteq",   options: "mA" },
-    // { trigger: "eset",   replacement: "\\emptyset",   options: "mA" },
-    // { trigger: "set",    replacement: "\\{ $0 \\}$1", options: "mA" },
-    // { trigger: "exists", replacement: "\\exists",     options: "mA", priority: 1 },
-
 
 
     // Operators without upper or lower limits
@@ -426,9 +417,11 @@ export default [
 
 
     // Custom Operators
-    { trigger: "declareop",  replacement: "\\DeclareMathOperator{$0}{$1}$2",  options: "mA" },
-    { trigger: "declareop*", replacement: "\\DeclareMathOperator*{$0}{$1}$2", options: "mA" },
-
+    {
+        trigger: "(\\*?)declareop",
+        replacement: (match) => `\\DeclareMathOperator${match[1]}{$0}{$1}$2`,
+        options: "rmA"
+    },
 
 
     // physics
@@ -498,18 +491,22 @@ export default [
 
 
     // LaTeX-like Theorem & Equation Referencer
-    { trigger: "axm",         replacement: "> [!axiom|${1:*}] $0\n> $2$3",       options: "t" },
-    { trigger: "axiom",       replacement: "> [!axiom|${1:*}] $0\n> $2$3",       options: "t" },
-    { trigger: "thm",         replacement: "> [!theorem|${1:*}] $0\n> $2$3",     options: "t" },
-    { trigger: "theorem",     replacement: "> [!theorem|${1:*}] $0\n> $2$3",     options: "t" },
-    { trigger: "prp",         replacement: "> [!proposition|${1:*}] $0\n> $2$3", options: "t" },
-    { trigger: "proposition", replacement: "> [!proposition|${1:*}] $0\n> $2$3", options: "t" },
-    { trigger: "cor",         replacement: "> [!corollary|${1:*}] $0\n> $2$3",   options: "t" },
-    { trigger: "corollary",   replacement: "> [!corollary|${1:*}] $0\n> $2$3",   options: "t" },
-    { trigger: "def",         replacement: "> [!definition|${1:*}] $0\n> $2$3",  options: "t" },
-    { trigger: "definition",  replacement: "> [!definition|${1:*}] $0\n> $2$3",  options: "t" },
-    { trigger: "exm",         replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
-    { trigger: "example",     replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
+    {
+        trigger: "(${THEOREM_ENVIRONMENT}|${THEOREM_ENV})",
+        replacement: (match) => {
+            const map = {
+                "axm": "axiom",
+                "thm": "theorem",
+                "prp": "proposition",
+                "cor": "corollary",
+                "def": "definition",
+                "exm": "example"
+            };
+            const env = map[match[1]] || match[1];
+            return `> [!${env}|\${1:*}] $0\n> $2$3`;
+        },
+        options: "rt"
+    },
 
 
 
