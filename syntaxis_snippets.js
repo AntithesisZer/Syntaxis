@@ -325,38 +325,52 @@ export default [
     },
 
 
+    // Binary Relation Symbols
+    { trigger: "===",  replacement: "\\equiv",    options: "mA" },
+    { trigger: "!=",   replacement: "\\neq",      options: "mA" },
+    { trigger: "aprx", replacement: "\\approx",   options: "mA" },
+    { trigger: "apr=", replacement: "\\approxeq", options: "mA" },
+    { trigger: ">=",   replacement: "\\geq",      options: "mA" },
+    { trigger: "<=",   replacement: "\\leq",      options: "mA" },
+    { trigger: ">>",   replacement: "\\gg",       options: "mA" },
+    { trigger: "<<",   replacement: "\\ll",       options: "mA" },
+    { trigger: "simm", replacement: "\\sim",      options: "mA" },
+    { trigger: "sim=", replacement: "\\simeq",    options: "mA" },
+    { trigger: "prop", replacement: "\\propto",   options: "mA" },
+    { trigger: "in",   replacement: "\\in",       options: "m"  },
+    { trigger: "ni",   replacement: "\\ni",       options: "m"  },
+    { trigger: "nin",  replacement: "\\notin",    options: "m"  },
+    { trigger: "nni",  replacement: "\\not\\ni",  options: "m"  },
 
-    // // Symbols
-    // { trigger: "ooo", replacement: "\\infty", options: "m" },
+    // Binary Operators
+    { trigger: "+-",   replacement: "\\pm",       options: "mA" },
+    { trigger: "-+",   replacement: "\\mp",       options: "mA" },
+    { trigger: "xx",   replacement: "\\times",    options: "mA" },
+    { trigger: "**",   replacement: "\\cdot",     options: "mA" },
+    { trigger: "o+",   replacement: "\\oplus",    options: "m"  },
+    { trigger: "oxx",  replacement: "\\otimes",   options: "m"  },
+    { trigger: "o**",  replacement: "\\odot",     options: "m"  },
+    { trigger: "and",  replacement: "\\cap",      options: "m"  },
+    { trigger: "or",   replacement: "\\cup",      options: "m"  },
 
-    // { trigger: "+-",   replacement: "\\pm",       options: "mA" },
-    // { trigger: "-+",   replacement: "\\mp",       options: "mA" },
-    // { trigger: "...",  replacement: "\\dots",     options: "mA" },
-    // { trigger: "nabl", replacement: "\\nabla",    options: "mA" },
-    // { trigger: "xx",   replacement: "\\times",    options: "mA" },
-    // { trigger: "**",   replacement: "\\cdot",     options: "mA" },
-    // { trigger: "para", replacement: "\\parallel", options: "mA" },
+    // Symbols
+    { trigger: "ooo", replacement: "\\infty", options: "m" },
+// 统一匹配 c*** (\cdot), c**** (\cdots), *** (\dot), **** (\dots)
+{
+  trigger: "(?<![a-zA-Z\\\\])(c)?(\\*\\*\\*\\*|\\*\\*\\*)",
+  replacement: (match) => {
+    const isC = match[1] === "c";
+    const isFour = match[2] === "****";
 
-    // { trigger: "===",  replacement: "\\equiv",  options: "mA" },
-    // { trigger: "!=",   replacement: "\\neq",    options: "mA" },
-    // { trigger: ">=",   replacement: "\\geq",    options: "mA" },
-    // { trigger: "<=",   replacement: "\\leq",    options: "mA" },
-    // { trigger: ">>",   replacement: "\\gg",     options: "mA" },
-    // { trigger: "<<",   replacement: "\\ll",     options: "mA" },
-    // { trigger: "simm", replacement: "\\sim",    options: "mA" },  
-    // { trigger: "sim=", replacement: "\\simeq",  options: "mA" },
-    // { trigger: "prop", replacement: "\\propto", options: "mA" },
+    if (isC) {
+      return isFour ? "\\cdots$0" : "\\cdot$0";
+    }
+    return isFour ? "\\dots$0" : "\\dot$0";
+  },
+  options: "rm"
+},
 
-    // { trigger: "<->", replacement: "\\leftrightarrow ", options: "mA" },
-    // { trigger: "->",  replacement: "\\to",              options: "mA" },
-    // { trigger: "!>",  replacement: "\\mapsto",          options: "mA" },
-    // { trigger: "=>",  replacement: "\\implies",         options: "mA" },  
-    // { trigger: "=<",  replacement: "\\impliedby",       options: "mA" },
 
-    // { trigger: "and",    replacement: "\\cap",        options: "mA" },
-    // { trigger: "orr",    replacement: "\\cup",        options: "mA" },
-    // { trigger: "inn",    replacement: "\\in",         options: "mA" },
-    // { trigger: "notin",  replacement: "\\not\\in",    options: "mA" },
     // { trigger: "\\\\\\", replacement: "\\setminus",   options: "mA" },
     // { trigger: "sub=",   replacement: "\\subseteq",   options: "mA" },
     // { trigger: "sup=",   replacement: "\\supseteq",   options: "mA" },
@@ -463,7 +477,7 @@ export default [
         },
         options: "rm"
     },
-    // 全微分、偏导数
+    // 全微分，偏导数
     {
         trigger: "(\\*pdvv|\\*pdv|pdvv|pdv|\\*dv|dvv|dv)",
         replacement: (match) => {
