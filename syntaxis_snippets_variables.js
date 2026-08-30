@@ -1,5 +1,6 @@
 export default {
     "${DELIMITER}": "(?:\\(|lvert)",
+    "${DELIM}": "(?:\\(|\\[)",
     "${MACRO_OP}": "(?:sum|prod|coprod|bigvee|bigwedge|bigcup|bigcap|bigsqcup|biguplus|bigodot|bigoplus|bigotimes|int|oint|iint|iiint|iiiint|idotsint)",
     "${FRACTION}": "(?:frac|dfrac|tfrac|cfrac|genfrac)",
     "${BINOMIAL}": "(?:binom|dbinom|tbinom)",
