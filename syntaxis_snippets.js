@@ -190,9 +190,9 @@ export default [
     { trigger: "@S",  replacement: "\\Sigma",      options: "mA" },
     { trigger: ":s",  replacement: "\\varsigma",   options: "mA" },
     { trigger: ":S",  replacement: "\\varSigma",   options: "mA" },
-    { trigger: "@t",  replacement: "\\tau",        options: "mA" },
-    { trigger: "@T",  replacement: "\\mathrm{T}",  options: "mA" },
-    { trigger: ":T",  replacement: "\\mathit{T}",  options: "mA" },
+    { trigger: "@ta", replacement: "\\tau",        options: "mA" },
+    { trigger: "@Ta", replacement: "\\mathrm{T}",  options: "mA" },
+    { trigger: ":Ta", replacement: "\\mathit{T}",  options: "mA" },
     { trigger: "@u",  replacement: "\\upsilon",    options: "mA" },
     { trigger: "@U",  replacement: "\\Upsilon",    options: "mA" },
     { trigger: ":U",  replacement: "\\varUpsilon", options: "mA" },
@@ -414,6 +414,31 @@ export default [
     // Custom Operators
     { trigger: "declareop",  replacement: "\\DeclareMathOperator{$0}{$1}$2",  options: "mA" },
     { trigger: "declareop*", replacement: "\\DeclareMathOperator*{$0}{$1}$2", options: "mA" },
+
+
+
+    // physics
+
+// // 1. 输入 dd 展开为带默认值 x 的一阶导数
+// {
+//   trigger: "dd",
+//   replacement: "\\dd{${1:x}}$0",
+//   options: "mA"
+// },
+
+// // 2. 连续快速输入 ddd（覆盖默认值产生 \dd{d} 时），自动重置为高阶导数
+// {
+//   trigger: "\\\\dd\\{d\\}",
+//   replacement: "\\dd[${1:2}]{${2:x}}$0",
+//   options: "rmA"
+// },
+
+// // 3. 内容已修改时（如 \dd{y}），在括号后按 d 自动迁移内容升级为高阶导数
+// {
+//   trigger: "\\\\dd\\{([^}]+)\\}d",
+//   replacement: (match) => `\\dd[\${1:2}]{${match[1]}}\$0`,
+//   options: "rmA"
+// },
     
 
 
