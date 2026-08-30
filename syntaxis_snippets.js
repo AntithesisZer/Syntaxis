@@ -278,8 +278,26 @@ export default [
     { trigger: "dbinom", replacement: "\\dbinom{$0}{$1}$2", options: "m" },
     { trigger: "tbinom", replacement: "\\tbinom{$0}{$1}$2", options: "m" },
 
+    // Square Roots
+    { trigger: "*sqrt", replacement: "\\sqrt{$0}$1",     options: "m" },
+    { trigger: "sqrt",  replacement: "\\sqrt[$0]{$1}$2", options: "m" },
 
 
+    // ENV
+    {
+        trigger: "(${ENV_ALIGN}|${ENV_MATRIX}|${ENV_CASES}|${ENV_GATHMULT}|${ENV_OTHER})beg",
+        replacement: (match) => `\\begin{${match[1]}}\n$0\n\\end{${match[1]}}`,
+        options: "rMA"
+    }, {
+        trigger: "(${ENV_ALIGN}|${ENV_MATRIX}|${ENV_CASES}|${ENV_GATHMULT}|${ENV_OTHER})beg",
+        replacement: (match) => `\\begin{${match[1]}}$0\\end{${match[1]}}`,
+        options: "rmA"
+    },
+
+
+    // \tag{}
+    { trigger: "ntag", replacement: "\\notag",     options: "m" },
+    { trigger: "tag",  replacement: "\\tag{$0}$1", options: "m" },
 
 
     // // Symbols
@@ -322,7 +340,7 @@ export default [
 
 
 
-
+    // Operators without upper or lower limits
     // Trigonometry
     {
         trigger: /(?<!\\)(arcsin|sin|arccos|cos|arctan|tan|csc|sec|cot)/,
@@ -342,7 +360,32 @@ export default [
         options: "mA",
         priority: 1
     },
+    // Logarithm
+    {
+        trigger: /(?<!\\)(log|ln|lg|lb)/,
+        replacement: "\\[[0]]",
+        options: "rmA"
+    }, {
+        trigger: /\\(log|ln|lg|lb)([A-Za-z])/,
+        replacement: "\\[[0]] [[1]]",
+        options: "rmA",
+    },
+    // Other
+    {
+        trigger: /(?<!\\)(exp|dim|ker|hom|deg)/,
+        replacement: "\\[[0]]",
+        options: "rmA"
+    },
+
+    // Operators with upper and lower limits
+
     
+
+    // Custom Operators
+    { trigger: "declareop",  replacement: "\\DeclareMathOperator{$0}{$1}$2",  options: "mA" },
+    { trigger: "declareop*", replacement: "\\DeclareMathOperator*{$0}{$1}$2", options: "mA" },
+    
+
 
     // LaTeX-like Theorem & Equation Referencer
     { trigger: "axm",         replacement: "> [!axiom|${1:*}] $0\n> $2$3",       options: "t" },
@@ -358,10 +401,6 @@ export default [
     { trigger: "exm",         replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
     { trigger: "example",     replacement: "> [!example|${1:*}] $0\n> $2$3",     options: "t" },
 
-
-    // \tag{}
-    { trigger: "ntag", replacement: "\\notag",     options: "m" },
-    { trigger: "tag",  replacement: "\\tag{$0}$1", options: "m" },
 
 
     // // TikZJax
