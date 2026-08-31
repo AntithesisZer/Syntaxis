@@ -29,10 +29,21 @@ function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// 确保 \left 与 \right 接收到合法的 LaTeX 界定符（如将 { 规范化为 \{）
+// 精准生成定界符正则模式（隔离单双字符与防止粘连误判）
+function getDelimPattern(delim) {
+    if (delim === "|") return "(?<![\\\\|])\\|(?![|])";
+    if (delim === "/") return "(?<![\\\\/])/(?![/])";
+    if (delim === "<") return "(?<![\\\\<])<(?![<=-])";
+    if (delim === ">") return "(?<![\\\\>])>(?![=>])";
+    return escapeRegex(delim);
+}
+
+// 规范化 \left 与 \right 后的符号映射
 function formatLeftRightDelim(delim) {
     if (!delim) return ".";
     if (delim === "{" || delim === "}") return `\\${delim}`;
+    if (delim === "<") return "\\langle";
+    if (delim === ">") return "\\rangle";
     return delim;
 }
 
@@ -42,17 +53,14 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
     const leftDisplay = left_delim ? (left_delim.startsWith("\\") && left_delim.length > 2 ? `${left_delim} ` : left_delim) : "";
     const rightDisplay = right_delim ? (right_delim.startsWith("\\") && right_delim.length > 2 ? ` ${right_delim}` : right_delim) : "";
 
-    // 1. 防误触触发词正则化构建（解决问题 2）
+    // 1. 触发词正则
     let safeTrigger = "";
     if (/^[a-zA-Z]+$/.test(trigger_delim)) {
-        // 英文单词触发词（brace, vert 等）：禁止前面有反斜杠或字母（防止匹配 \rbrace 尾部的 brace）
         safeTrigger = `(?<![a-zA-Z\\\\])${escapeRegex(trigger_delim)}`;
     } else if (trigger_delim.startsWith("\\")) {
-        // 自带反斜杠的符号（\{, \|）
         safeTrigger = escapeRegex(trigger_delim);
     } else {
-        // 普通标点符号（(, [, <, |）：禁止前面有反斜杠转义
-        safeTrigger = `(?<!\\\\)${escapeRegex(trigger_delim)}`;
+        safeTrigger = getDelimPattern(trigger_delim);
     }
 
     // 基础展开
@@ -71,9 +79,9 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
         description: `Wrap selection with ${trigger_delim}`
     });
 
-    // 2. 自动放大规则（解决问题 1）
-    const leftPat = escapeRegex(left_delim);
-    const rightPat = escapeRegex(right_delim);
+    // 2. 自动放大规则
+    const leftPat = getDelimPattern(left_delim);
+    const rightPat = getDelimPattern(right_delim);
 
     const lDelim = formatLeftRightDelim(left_delim);
     const rDelim = formatLeftRightDelim(right_delim);
@@ -83,17 +91,18 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
     let autoEnlargeRegex = "";
 
     if (left_delim && right_delim) {
-        autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)${rightPat}(?!\\s*\\\\right)`;
+        // 增加 \\s* 允许展开带空格，修正 (?<!\\\\right\\s*) 防止右界定符重复匹配
+        autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)\\s*(?<!\\\\right\\s*)${rightPat}`;
     } else if (!left_delim && right_delim) {
-        autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)${rightPat}(?!\\s*\\\\right)`;
+        autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)\\s*(?<!\\\\right\\s*)${rightPat}`;
     } else if (left_delim && !right_delim) {
-        autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)(?!\\s*\\\\right\\.)`;
+        autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)(?!\\s*\\\\right\\.)`;
     }
 
     if (autoEnlargeRegex) {
         generatedDelimiterSnippets.push({
             trigger: autoEnlargeRegex,
-            replacement: (match) => `${lReplacement}${match[1]}${rReplacement}$0`,
+            replacement: (match) => `${lReplacement}${match[1].trim()}${rReplacement}$0`,
             options: "rmA",
             description: `Auto-enlarge delimiters for ${trigger_delim}`
         });
@@ -106,7 +115,7 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 //     { trigger_delim: "(", left_delim: "(", right_delim: ")" },
 //     { trigger_delim: "[", left_delim: "[", right_delim: "]" },
 //     { trigger_delim: "brack", left_delim: "\\lbrack", right_delim: "\\rbrack" },
-//     { trigger_delim: "{", left_delim: "{", right_delim: "}" },
+//     { trigger_delim: "{", left_delim: "\\{", right_delim: "\\}" },
 //     { trigger_delim: "\\{", left_delim: "\\{", right_delim: "\\}" },
 //     { trigger_delim: "brace", left_delim: "\\lbrace", right_delim: "\\rbrace" },
 //     { trigger_delim: "<", left_delim: "<", right_delim: ">" },
@@ -121,15 +130,26 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 //     { trigger_delim: "group", left_delim: "\\lgroup", right_delim: "\\rgroup" },
 //     { trigger_delim: "moustache", left_delim: "\\lmoustache", right_delim: "\\rmoustache" },
 // ];
+
 // const MACRO_OP = "sum|prod|coprod|bigvee|bigwedge|bigcup|bigcap|bigsqcup|biguplus|bigodot|bigoplus|bigotimes|int|oint|iint|iiint|iiiint|idotsint";
 // const FRACTION = "frac|dfrac|tfrac|cfrac|genfrac";
 // const BINOMIAL = "binom|dbinom|tbinom";
 // const ENV_TALL = "(?:[pPbBvV]?matrix|smallmatrix|cases|dcases|rcases|drcases|array|aligned|gathered|split)\\*?";
 // const TALL_SYMBOLS = `\\\\(?:${MACRO_OP}|${FRACTION}|${BINOMIAL}|sqrt|begin\\{${ENV_TALL}\\})`;
 
+// // 标准正则安全转义（精准保留 1 层正则转义，彻底修复 \\{、\\| 与宏命令匹配失效）
 // function escapeRegex(str) {
 //     if (!str) return "";
 //     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// }
+
+// // 规范化 \left 与 \right 后的界定符符号
+// function formatLeftRightDelim(delim) {
+//     if (!delim) return ".";
+//     if (delim === "{" || delim === "}") return `\\${delim}`;
+//     if (delim === "<") return "\\langle";
+//     if (delim === ">") return "\\rangle";
+//     return delim;
 // }
 
 // const generatedDelimiterSnippets = [];
@@ -138,40 +158,59 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 //     const leftDisplay = left_delim ? (left_delim.startsWith("\\") && left_delim.length > 2 ? `${left_delim} ` : left_delim) : "";
 //     const rightDisplay = right_delim ? (right_delim.startsWith("\\") && right_delim.length > 2 ? ` ${right_delim}` : right_delim) : "";
 
+//     // 1. 构建精准防误触的触发词正则
+//     let safeTrigger = "";
+//     if (/^[a-zA-Z]+$/.test(trigger_delim)) {
+//         // 英文单词触发词（brace, vert, angle 等）：前面不能有字母或反斜杠（防止 \rbrace 触发 brace）
+//         safeTrigger = `(?<![a-zA-Z\\\\])${escapeRegex(trigger_delim)}`;
+//     } else if (trigger_delim.startsWith("\\")) {
+//         // 显式带反斜杠触发词（\{, \|）：精准匹配输入的 \{ 与 \|
+//         safeTrigger = escapeRegex(trigger_delim);
+//     } else {
+//         // 纯标点触发词（(, [, {, <, |）：前面不能有反斜杠转义（避免输入 \{ 时误触发 {）
+//         safeTrigger = `(?<!\\\\)${escapeRegex(trigger_delim)}`;
+//     }
+
+//     // 基础展开 (按 Tab / 空格触发)
 //     generatedDelimiterSnippets.push({
-//         trigger: trigger_delim,
+//         trigger: safeTrigger,
 //         replacement: `${leftDisplay}$0${rightDisplay}$1`,
-//         options: "m",
+//         options: "rm",
 //         description: `Expand ${trigger_delim}`
 //     });
 
+//     // 选区包裹 (Visual 模式)
 //     generatedDelimiterSnippets.push({
-//         trigger: trigger_delim,
+//         trigger: safeTrigger,
 //         replacement: `${leftDisplay}[[0]]$0${rightDisplay}$1`,
-//         options: "mV",
+//         options: "rmV",
 //         description: `Wrap selection with ${trigger_delim}`
 //     });
 
+//     // 2. 自动放大规则 (输入高符号后自动添加 \left \right)
 //     const leftPat = escapeRegex(left_delim);
 //     const rightPat = escapeRegex(right_delim);
 
+//     const lDelim = formatLeftRightDelim(left_delim);
+//     const rDelim = formatLeftRightDelim(right_delim);
+//     const lReplacement = left_delim ? `\\left${lDelim} ` : "\\left. ";
+//     const rReplacement = right_delim ? ` \\right${rDelim}` : " \\right.";
+
 //     let autoEnlargeRegex = "";
-//     let lReplacement = left_delim ? `\\left${left_delim} ` : "\\left. ";
-//     let rReplacement = right_delim ? ` \\right${right_delim}` : " \\right.";
 
 //     if (left_delim && right_delim) {
-//         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!${leftPat}|${rightPat})[^\\n])*?${TALL_SYMBOLS}(?:(?!${leftPat}|${rightPat})[^\\n])*?)${rightPat}(?!\\s*\\\\right)`;
+//         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)${rightPat}(?!\\s*\\\\right)`;
 //     } else if (!left_delim && right_delim) {
-//         autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!${rightPat})[^\\n$=])*?${TALL_SYMBOLS}(?:(?!${rightPat})[^\\n$])*?)${rightPat}(?!\\s*\\\\right)`;
+//         autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)${rightPat}(?!\\s*\\\\right)`;
 //     } else if (left_delim && !right_delim) {
-//         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!${leftPat})[^\\n$=])*?${TALL_SYMBOLS}(?:(?!${leftPat})[^\\n$])*?)(?!\\s*\\\\right\\.)`;
+//         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)(?!\\s*\\\\right\\.)`;
 //     }
 
 //     if (autoEnlargeRegex) {
 //         generatedDelimiterSnippets.push({
 //             trigger: autoEnlargeRegex,
-//             replacement: `${lReplacement}$0${rReplacement}$1`,
-//             options: "rm",
+//             replacement: (match) => `${lReplacement}${match[1].trim()}${rReplacement}$0`,
+//             options: "rmA",
 //             description: `Auto-enlarge delimiters for ${trigger_delim}`
 //         });
 //     }
