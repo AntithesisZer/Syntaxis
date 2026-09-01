@@ -2,7 +2,7 @@
 // 1. 定界符数据源定义
 // ==========================================
 
-// 基础单字符/符号定界符（自动展开）- 已移除 <> 和 ||
+// 基础单字符/符号定界符（自动展开）
 const BASIC_DELIMITER_PAIRS = [
     { trigger: "(",   left: "(",        right: ")",        displayLeft: "(",   displayRight: ")" },
     { trigger: "[",   left: "[",        right: "]",        displayLeft: "[",   displayRight: "]" },
@@ -14,7 +14,7 @@ const BASIC_DELIMITER_PAIRS = [
     { trigger: "\\{", left: "\\{",      right: "\\}",      displayLeft: "\\{", displayRight: "\\}" },
 ];
 
-// 命名/单词类定界符（手动 Tab 触发）
+// 命名/单词类定界符（手动 Tab 触发，内部用 {} 包裹光标）
 const NAMED_DELIMITER_PAIRS = [
     { trigger: "brack",     left: "\\lbrack",     right: "\\rbrack" },
     { trigger: "brace",     left: "\\lbrace",     right: "\\rbrace" },
@@ -45,18 +45,41 @@ function escapeRegex(str) {
 
 function formatLeftRightDelim(delim) {
     if (!delim) return ".";
-    if (delim === "{" || delim === "\\{" || delim === "\\lbrace") return "\\{";
-    if (delim === "}" || delim === "\\}" || delim === "\\rbrace") return "\\}";
+    if (delim === "{" || delim === "\\{") return "\\{";
+    if (delim === "}" || delim === "\\}") return "\\}";
     if (delim === "\\langle") return "\\langle";
     if (delim === "\\rangle") return "\\rangle";
     return delim;
+}
+
+// 剔除内容最外层的 {}（若存在），防止自动放大时产生嵌套重复花括号
+function stripOuterBraces(str) {
+    if (!str) return "";
+    str = str.trim();
+    if (str.startsWith("{") && str.endsWith("}")) {
+        let depth = 0;
+        for (let i = 0; i < str.length; i++) {
+            if (str[i] === "{" && (i === 0 || str[i - 1] !== "\\")) {
+                depth++;
+            } else if (str[i] === "}" && (i === 0 || str[i - 1] !== "\\")) {
+                depth--;
+                if (depth === 0 && i < str.length - 1) {
+                    return str; // 中途闭合说明不是包裹整体的外层花括号
+                }
+            }
+        }
+        if (depth === 0) {
+            return str.slice(1, -1).trim();
+        }
+    }
+    return str;
 }
 
 function getDelimPatterns(left_delim, right_delim) {
     let leftPat = "";
     let rightPat = "";
 
-    // 左界定符正则分支（移除了字面量 <、|、\| 的匹配）
+    // 左界定符正则分支
     if (left_delim === "(") leftPat = "\\(";
     else if (left_delim === "[") leftPat = "\\[";
     else if (left_delim === "\\lbrack") leftPat = "(?:\\[|\\\\lbrack)";
@@ -68,7 +91,7 @@ function getDelimPatterns(left_delim, right_delim) {
     else if (left_delim.startsWith("\\")) leftPat = "\\\\" + left_delim.slice(1);
     else leftPat = escapeRegex(left_delim);
 
-    // 右界定符正则分支（移除了字面量 >、|、\| 的匹配）
+    // 右界定符正则分支
     if (right_delim === ")") rightPat = "\\)";
     else if (right_delim === "]") rightPat = "\\]";
     else if (right_delim === "\\rbrack") rightPat = "(?:\\]|\\\\rbrack)";
@@ -111,15 +134,14 @@ BASIC_DELIMITER_PAIRS.forEach(({ trigger, displayLeft, displayRight }) => {
     });
 });
 
-// 3.2 命名单词定界符（手动 Tab 触发）
+// 3.2 命名单词定界符（手动 Tab 触发，内部改为空格为 {}）
 NAMED_DELIMITER_PAIRS.forEach(({ trigger, left, right }) => {
-    const leftDisplay = left.startsWith("\\") && left.length > 2 ? `${left} ` : left;
-    const rightDisplay = right.startsWith("\\") && right.length > 2 ? ` ${right}` : right;
     const safeTrigger = `(?<![a-zA-Z\\\\])${trigger}`;
 
+    // 展开为 \lbrace{$0}\rbrace$1 形式
     generatedDelimiterSnippets.push({
         trigger: safeTrigger,
-        replacement: `${leftDisplay}$0${rightDisplay}$1`,
+        replacement: `${left}{$0}${right}$1`,
         options: "rm",
         description: `Expand named delimiter ${trigger}`
     });
@@ -135,8 +157,13 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
     const { leftPat, rightPat } = getDelimPatterns(left, right);
     const lDelim = formatLeftRightDelim(left);
     const rDelim = formatLeftRightDelim(right);
-    const lReplacement = left ? `\\left${lDelim} ` : "\\left. ";
-    const rReplacement = right ? ` \\right${rDelim}` : " \\right.";
+
+    // 判断当前定界符是否属于命名定界符
+    const isNamed = NAMED_DELIMITER_PAIRS.some(p => p.trigger === trigger);
+
+    // 命名定界符使用 \left\lbrace{ ... }\right\rbrace，基础符号定界符保留空格分隔
+    const lReplacement = isNamed ? (left ? `\\left${lDelim}{` : "\\left.{") : (left ? `\\left${lDelim} ` : "\\left. ");
+    const rReplacement = isNamed ? (right ? `}\\right${rDelim}` : "}\\right.") : (right ? ` \\right${rDelim}` : " \\right.");
 
     let autoEnlargeRegex = "";
     if (left && right) {
@@ -151,7 +178,11 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
         seenEnlargeTriggers.add(autoEnlargeRegex);
         generatedDelimiterSnippets.push({
             trigger: autoEnlargeRegex,
-            replacement: (match) => `${lReplacement}${match[1].trim()}${rReplacement}$0`,
+            replacement: (match) => {
+                // 如果是命名定界符，先剥离原有的外层 {} 避免叠加两层花括号
+                const innerContent = isNamed ? stripOuterBraces(match[1]) : match[1].trim();
+                return `${lReplacement}${innerContent}${rReplacement}$0`;
+            },
             options: "rmA",
             description: `Auto-enlarge delimiters for ${trigger}`
         });
@@ -160,17 +191,24 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 
 
 
+
+// // ==========================================
+// // 1. 定界符数据源定义
+// // ==========================================
+
+// // 基础单字符/符号定界符（自动展开）- 已移除 <> 和 ||
 // const BASIC_DELIMITER_PAIRS = [
 //     { trigger: "(",   left: "(",        right: ")",        displayLeft: "(",   displayRight: ")" },
 //     { trigger: "[",   left: "[",        right: "]",        displayLeft: "[",   displayRight: "]" },
+//     // 单个 { 展开为普通花括号 {}
 //     { trigger: "{",   left: "",         right: "",         displayLeft: "{",   displayRight: "}" },
+//     // 双写 {{ 展开为 \{ \}
 //     { trigger: "{{",  left: "\\{",      right: "\\}",      displayLeft: "\\{", displayRight: "\\" },
+//     // 直接输入 \{ 展开为转义花括号 \{\}
 //     { trigger: "\\{", left: "\\{",      right: "\\}",      displayLeft: "\\{", displayRight: "\\}" },
-//     // { trigger: "<",   left: "<",        right: ">",        displayLeft: "<",   displayRight: ">" },
-//     // { trigger: "|",   left: "|",        right: "|",        displayLeft: "|",   displayRight: "|" },
-//     // { trigger: "\\|", left: "\\|",      right: "\\|",      displayLeft: "\\|", displayRight: "\\|" },
 // ];
 
+// // 命名/单词类定界符（手动 Tab 触发）
 // const NAMED_DELIMITER_PAIRS = [
 //     { trigger: "brack",     left: "\\lbrack",     right: "\\rbrack" },
 //     { trigger: "brace",     left: "\\lbrace",     right: "\\rbrace" },
@@ -183,6 +221,10 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //     { trigger: "group",     left: "\\lgroup",     right: "\\rgroup" },
 //     { trigger: "moustache", left: "\\lmoustache",  right: "\\rmoustache" },
 // ];
+
+// // ==========================================
+// // 2. 高度匹配常量与辅助函数
+// // ==========================================
 
 // const MACRO_OP = "sum|prod|coprod|bigvee|bigwedge|bigcup|bigcap|bigsqcup|biguplus|bigodot|bigoplus|bigotimes|int|oint|iint|iiint|iiiint|idotsint";
 // const FRACTION = "frac|dfrac|tfrac|cfrac|genfrac";
@@ -199,8 +241,8 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //     if (!delim) return ".";
 //     if (delim === "{" || delim === "\\{" || delim === "\\lbrace") return "\\{";
 //     if (delim === "}" || delim === "\\}" || delim === "\\rbrace") return "\\}";
-//     if (delim === "<" || delim === "\\langle") return "\\langle";
-//     if (delim === ">" || delim === "\\rangle") return "\\rangle";
+//     if (delim === "\\langle") return "\\langle";
+//     if (delim === "\\rangle") return "\\rangle";
 //     return delim;
 // }
 
@@ -208,26 +250,26 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //     let leftPat = "";
 //     let rightPat = "";
 
+//     // 左界定符正则分支（移除了字面量 <、|、\| 的匹配）
 //     if (left_delim === "(") leftPat = "\\(";
 //     else if (left_delim === "[") leftPat = "\\[";
 //     else if (left_delim === "\\lbrack") leftPat = "(?:\\[|\\\\lbrack)";
 //     else if (left_delim === "{" || left_delim === "\\{" || left_delim === "\\lbrace") leftPat = "(?:\\\\\\{|\\\\lbrace)";
-//     else if (left_delim === "<" || left_delim === "\\langle") leftPat = "(?:<|\\\\langle)";
-//     else if (left_delim === "|") leftPat = "(?<![\\\\|])\\|(?![|])";
-//     else if (left_delim === "\\lvert") leftPat = "(?:(?<![\\\\|])\\||\\\\lvert)";
-//     else if (left_delim === "\\|" || left_delim === "\\lVert") leftPat = "(?:\\\\\\||\\\\lVert)";
+//     else if (left_delim === "\\langle") leftPat = "\\\\langle";
+//     else if (left_delim === "\\lvert") leftPat = "\\\\lvert";
+//     else if (left_delim === "\\lVert") leftPat = "\\\\lVert";
 //     else if (left_delim === "/") leftPat = "(?<!\\\\)/";
 //     else if (left_delim.startsWith("\\")) leftPat = "\\\\" + left_delim.slice(1);
 //     else leftPat = escapeRegex(left_delim);
 
+//     // 右界定符正则分支（移除了字面量 >、|、\| 的匹配）
 //     if (right_delim === ")") rightPat = "\\)";
 //     else if (right_delim === "]") rightPat = "\\]";
 //     else if (right_delim === "\\rbrack") rightPat = "(?:\\]|\\\\rbrack)";
 //     else if (right_delim === "}" || right_delim === "\\}" || right_delim === "\\rbrace") rightPat = "(?:\\\\\\}|\\\\rbrace)";
-//     else if (right_delim === ">" || right_delim === "\\rangle") rightPat = "(?:>|\\\\rangle)";
-//     else if (right_delim === "|") rightPat = "(?<![\\\\|])\\|(?![|])";
-//     else if (right_delim === "\\rvert") rightPat = "(?:(?<![\\\\|])\\||\\\\rvert)";
-//     else if (right_delim === "\\|" || right_delim === "\\rVert") rightPat = "(?:\\\\\\||\\\\rVert)";
+//     else if (right_delim === "\\rangle") rightPat = "\\\\rangle";
+//     else if (right_delim === "\\rvert") rightPat = "\\\\rvert";
+//     else if (right_delim === "\\rVert") rightPat = "\\\\rVert";
 //     else if (right_delim === "\\backslash") rightPat = "\\\\backslash";
 //     else if (right_delim.startsWith("\\")) rightPat = "\\\\" + right_delim.slice(1);
 //     else rightPat = escapeRegex(right_delim);
@@ -235,23 +277,22 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //     return { leftPat, rightPat };
 // }
 
+// // ==========================================
+// // 3. 片段动态生成
+// // ==========================================
+
 // const generatedDelimiterSnippets = [];
 // const seenEnlargeTriggers = new Set();
 
+// // 3.1 基础单字符定界符（自动补全）
 // BASIC_DELIMITER_PAIRS.forEach(({ trigger, displayLeft, displayRight }) => {
 //     let safeTrigger = "";
-//     if (trigger === "\\|") {
-//         safeTrigger = "\\\\\\|";
-//     } else if (trigger === "\\{") {
+//     if (trigger === "\\{") {
 //         safeTrigger = "\\\\\\{";
 //     } else if (trigger === "{{") {
 //         safeTrigger = "(?<!\\\\)\\{\\{";
 //     } else if (trigger === "{") {
 //         safeTrigger = "(?<![\\\\{])\\{";
-//     } else if (trigger === "|") {
-//         safeTrigger = "(?<![|\\\\])\\|(?![|])";
-//     } else if (trigger === "<") {
-//         safeTrigger = "(?<![<\\\\=])<(?![=])";
 //     } else {
 //         safeTrigger = `(?<!\\\\)${escapeRegex(trigger)}`;
 //     }
@@ -264,6 +305,7 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //     });
 // });
 
+// // 3.2 命名单词定界符（手动 Tab 触发）
 // NAMED_DELIMITER_PAIRS.forEach(({ trigger, left, right }) => {
 //     const leftDisplay = left.startsWith("\\") && left.length > 2 ? `${left} ` : left;
 //     const rightDisplay = right.startsWith("\\") && right.length > 2 ? ` ${right}` : right;
@@ -277,6 +319,7 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //     });
 // });
 
+// // 3.3 统一构建高度自适应放大规则（\left ... \right 实时监听）
 // const ALL_PAIRS = [
 //     ...BASIC_DELIMITER_PAIRS.filter(p => p.left && p.right).map(p => ({ trigger: p.trigger, left: p.left, right: p.right })),
 //     ...NAMED_DELIMITER_PAIRS
@@ -308,6 +351,9 @@ ALL_PAIRS.forEach(({ trigger, left, right }) => {
 //         });
 //     }
 // });
+
+
+
 
 
 
