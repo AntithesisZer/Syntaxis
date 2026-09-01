@@ -447,6 +447,9 @@ export default [
     { trigger: ":W",  replacement: "\\varOmega",   options: "mA" },
 
     
+    // Mathematical Constants
+    { trigger: "pi", replacement: "\\pi", options: "mA" },
+
     // Tall Delimiters
     {
         trigger: "(bgr|bgrr|bggr|bggrr)(${DELIM_CHARACTER})",
