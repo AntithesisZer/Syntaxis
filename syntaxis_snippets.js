@@ -1,20 +1,20 @@
 const DELIMITER_PAIRS = [
-    { trigger_delim: "(", left_delim: "(", right_delim: ")" },
-    { trigger_delim: "[", left_delim: "[", right_delim: "]" },
-    { trigger_delim: "brack", left_delim: "\\lbrack", right_delim: "\\rbrack" },
-    { trigger_delim: "{", left_delim: "\\{", right_delim: "\\}" },
-    { trigger_delim: "\\{", left_delim: "\\{", right_delim: "\\}" },
-    { trigger_delim: "brace", left_delim: "\\lbrace", right_delim: "\\rbrace" },
-    { trigger_delim: "<", left_delim: "<", right_delim: ">" },
-    { trigger_delim: "|", left_delim: "|", right_delim: "|" },
-    { trigger_delim: "vert", left_delim: "\\lvert", right_delim: "\\rvert" },
-    { trigger_delim: "\\|", left_delim: "\\|", right_delim: "\\|" },
-    { trigger_delim: "Vert", left_delim: "\\lVert", right_delim: "\\rVert" },
-    { trigger_delim: "angle", left_delim: "\\langle", right_delim: "\\rangle" },
-    { trigger_delim: "slash", left_delim: "/", right_delim: "\\backslash" },
-    { trigger_delim: "ceil", left_delim: "\\lceil", right_delim: "\\rceil" },
-    { trigger_delim: "floor", left_delim: "\\lfloor", right_delim: "\\rfloor" },
-    { trigger_delim: "group", left_delim: "\\lgroup", right_delim: "\\rgroup" },
+    { trigger_delim: "(",         left_delim: "(",          right_delim: ")" },
+    { trigger_delim: "[",         left_delim: "[",          right_delim: "]" },
+    { trigger_delim: "brack",     left_delim: "\\lbrack",   right_delim: "\\rbrack" },
+    { trigger_delim: "{",         left_delim: "\\{",        right_delim: "\\}" },
+    { trigger_delim: "\\{",       left_delim: "\\{",        right_delim: "\\}" },
+    { trigger_delim: "brace",     left_delim: "\\lbrace",   right_delim: "\\rbrace" },
+    { trigger_delim: "<",         left_delim: "<",          right_delim: ">" },
+    { trigger_delim: "|",         left_delim: "|",          right_delim: "|" },
+    { trigger_delim: "vert",      left_delim: "\\lvert",    right_delim: "\\rvert" },
+    { trigger_delim: "\\|",       left_delim: "\\|",        right_delim: "\\|" },
+    { trigger_delim: "Vert",      left_delim: "\\lVert",    right_delim: "\\rVert" },
+    { trigger_delim: "angle",     left_delim: "\\langle",   right_delim: "\\rangle" },
+    { trigger_delim: "slash",     left_delim: "/",          right_delim: "\\backslash" },
+    { trigger_delim: "ceil",      left_delim: "\\lceil",    right_delim: "\\rceil" },
+    { trigger_delim: "floor",     left_delim: "\\lfloor",   right_delim: "\\rfloor" },
+    { trigger_delim: "group",     left_delim: "\\lgroup",   right_delim: "\\rgroup" },
     { trigger_delim: "moustache", left_delim: "\\lmoustache", right_delim: "\\rmoustache" },
 ];
 
@@ -29,41 +29,76 @@ function escapeRegex(str) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// 精准生成定界符正则模式（隔离单双字符与防止粘连误判）
-function getDelimPattern(delim) {
-    if (delim === "|") return "(?<![\\\\|])\\|(?![|])";
-    if (delim === "/") return "(?<![\\\\/])/(?![/])";
-    if (delim === "<") return "(?<![\\\\<])<(?![<=-])";
-    if (delim === ">") return "(?<![\\\\>])>(?![=>])";
-    return escapeRegex(delim);
-}
-
-// 规范化 \left 与 \right 后的符号映射
+// 规范化 \left 与 \right 后的 LaTeX 界定符符号
 function formatLeftRightDelim(delim) {
     if (!delim) return ".";
-    if (delim === "{" || delim === "}") return `\\${delim}`;
-    if (delim === "<") return "\\langle";
-    if (delim === ">") return "\\rangle";
+    if (delim === "{" || delim === "\\{" || delim === "\\lbrace") return "\\{";
+    if (delim === "}" || delim === "\\}" || delim === "\\rbrace") return "\\}";
+    if (delim === "<" || delim === "\\langle") return "\\langle";
+    if (delim === ">" || delim === "\\rangle") return "\\rangle";
     return delim;
 }
 
+// 精确构建左右定界符在 RegExp 编译器中的匹配分支
+function getDelimPatterns(left_delim, right_delim) {
+    let leftPat = "";
+    let rightPat = "";
+
+    // 左界定符正则分支
+    if (left_delim === "(") leftPat = "\\(";
+    else if (left_delim === "[") leftPat = "\\[";
+    else if (left_delim === "\\lbrack") leftPat = "(?:\\[|\\\\lbrack)";
+    else if (left_delim === "{" || left_delim === "\\{" || left_delim === "\\lbrace") leftPat = "(?:\\\\\\{|\\\\lbrace)";
+    else if (left_delim === "<" || left_delim === "\\langle") leftPat = "(?:<|\\\\langle)";
+    else if (left_delim === "|") leftPat = "(?<![\\\\|])\\|(?![|])";
+    else if (left_delim === "\\lvert") leftPat = "(?:(?<![\\\\|])\\||\\\\lvert)";
+    else if (left_delim === "\\|" || left_delim === "\\lVert") leftPat = "(?:\\\\\\||\\\\lVert)";
+    else if (left_delim === "/") leftPat = "(?<!\\\\)/";
+    else if (left_delim.startsWith("\\")) leftPat = "\\\\" + left_delim.slice(1);
+    else leftPat = escapeRegex(left_delim);
+
+    // 右界定符正则分支
+    if (right_delim === ")") rightPat = "\\)";
+    else if (right_delim === "]") rightPat = "\\]";
+    else if (right_delim === "\\rbrack") rightPat = "(?:\\]|\\\\rbrack)";
+    else if (right_delim === "}" || right_delim === "\\}" || right_delim === "\\rbrace") rightPat = "(?:\\\\\\}|\\\\rbrace)";
+    else if (right_delim === ">" || right_delim === "\\rangle") rightPat = "(?:>|\\\\rangle)";
+    else if (right_delim === "|") rightPat = "(?<![\\\\|])\\|(?![|])";
+    else if (right_delim === "\\rvert") rightPat = "(?:(?<![\\\\|])\\||\\\\rvert)";
+    else if (right_delim === "\\|" || right_delim === "\\rVert") rightPat = "(?:\\\\\\||\\\\rVert)";
+    else if (right_delim === "\\backslash") rightPat = "\\\\backslash";
+    else if (right_delim.startsWith("\\")) rightPat = "\\\\" + right_delim.slice(1);
+    else rightPat = escapeRegex(right_delim);
+
+    return { leftPat, rightPat };
+}
+
 const generatedDelimiterSnippets = [];
+const seenEnlargeTriggers = new Set();
 
 DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
     const leftDisplay = left_delim ? (left_delim.startsWith("\\") && left_delim.length > 2 ? `${left_delim} ` : left_delim) : "";
     const rightDisplay = right_delim ? (right_delim.startsWith("\\") && right_delim.length > 2 ? ` ${right_delim}` : right_delim) : "";
 
-    // 1. 触发词正则
+    // 1. 触发词正则构建（防误触与无冲突匹配）
     let safeTrigger = "";
     if (/^[a-zA-Z]+$/.test(trigger_delim)) {
-        safeTrigger = `(?<![a-zA-Z\\\\])${escapeRegex(trigger_delim)}`;
-    } else if (trigger_delim.startsWith("\\")) {
-        safeTrigger = escapeRegex(trigger_delim);
+        safeTrigger = `(?<![a-zA-Z\\\\])${trigger_delim}`;
+    } else if (trigger_delim === "\\|") {
+        safeTrigger = "\\\\\\|";
+    } else if (trigger_delim === "\\{") {
+        safeTrigger = "\\\\\\{";
+    } else if (trigger_delim === "|") {
+        safeTrigger = "(?<![|\\\\])\\|(?![|])";
+    } else if (trigger_delim === "<") {
+        safeTrigger = "(?<![<\\\\=])<(?![=])";
+    } else if (trigger_delim === "{") {
+        safeTrigger = "(?<!\\\\)\\{";
     } else {
-        safeTrigger = getDelimPattern(trigger_delim);
+        safeTrigger = `(?<!\\\\)${escapeRegex(trigger_delim)}`;
     }
 
-    // 基础展开
+    // 基础展开 (按 Tab / 空格触发)
     generatedDelimiterSnippets.push({
         trigger: safeTrigger,
         replacement: `${leftDisplay}$0${rightDisplay}$1`,
@@ -71,7 +106,7 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
         description: `Expand ${trigger_delim}`
     });
 
-    // 选区包裹
+    // 选区包裹 (Visual 模式)
     generatedDelimiterSnippets.push({
         trigger: safeTrigger,
         replacement: `${leftDisplay}[[0]]$0${rightDisplay}$1`,
@@ -79,10 +114,8 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
         description: `Wrap selection with ${trigger_delim}`
     });
 
-    // 2. 自动放大规则
-    const leftPat = getDelimPattern(left_delim);
-    const rightPat = getDelimPattern(right_delim);
-
+    // 2. 自动放大规则构建 (检测到高符号实时放大)
+    const { leftPat, rightPat } = getDelimPatterns(left_delim, right_delim);
     const lDelim = formatLeftRightDelim(left_delim);
     const rDelim = formatLeftRightDelim(right_delim);
     const lReplacement = left_delim ? `\\left${lDelim} ` : "\\left. ";
@@ -91,7 +124,6 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
     let autoEnlargeRegex = "";
 
     if (left_delim && right_delim) {
-        // 增加 \\s* 允许展开带空格，修正 (?<!\\\\right\\s*) 防止右界定符重复匹配
         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)\\s*(?<!\\\\right\\s*)${rightPat}`;
     } else if (!left_delim && right_delim) {
         autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)\\s*(?<!\\\\right\\s*)${rightPat}`;
@@ -99,7 +131,8 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)(?!\\s*\\\\right\\.)`;
     }
 
-    if (autoEnlargeRegex) {
+    if (autoEnlargeRegex && !seenEnlargeTriggers.has(autoEnlargeRegex)) {
+        seenEnlargeTriggers.add(autoEnlargeRegex);
         generatedDelimiterSnippets.push({
             trigger: autoEnlargeRegex,
             replacement: (match) => `${lReplacement}${match[1].trim()}${rReplacement}$0`,
@@ -112,22 +145,22 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 
 
 // const DELIMITER_PAIRS = [
-//     { trigger_delim: "(", left_delim: "(", right_delim: ")" },
-//     { trigger_delim: "[", left_delim: "[", right_delim: "]" },
-//     { trigger_delim: "brack", left_delim: "\\lbrack", right_delim: "\\rbrack" },
-//     { trigger_delim: "{", left_delim: "\\{", right_delim: "\\}" },
-//     { trigger_delim: "\\{", left_delim: "\\{", right_delim: "\\}" },
-//     { trigger_delim: "brace", left_delim: "\\lbrace", right_delim: "\\rbrace" },
-//     { trigger_delim: "<", left_delim: "<", right_delim: ">" },
-//     { trigger_delim: "|", left_delim: "|", right_delim: "|" },
-//     { trigger_delim: "vert", left_delim: "\\lvert", right_delim: "\\rvert" },
-//     { trigger_delim: "\\|", left_delim: "\\|", right_delim: "\\|" },
-//     { trigger_delim: "Vert", left_delim: "\\lVert", right_delim: "\\rVert" },
-//     { trigger_delim: "angle", left_delim: "\\langle", right_delim: "\\rangle" },
-//     { trigger_delim: "slash", left_delim: "/", right_delim: "\\backslash" },
-//     { trigger_delim: "ceil", left_delim: "\\lceil", right_delim: "\\rceil" },
-//     { trigger_delim: "floor", left_delim: "\\lfloor", right_delim: "\\rfloor" },
-//     { trigger_delim: "group", left_delim: "\\lgroup", right_delim: "\\rgroup" },
+//     { trigger_delim: "(",         left_delim: "(",          right_delim: ")" },
+//     { trigger_delim: "[",         left_delim: "[",          right_delim: "]" },
+//     { trigger_delim: "brack",     left_delim: "\\lbrack",   right_delim: "\\rbrack" },
+//     { trigger_delim: "{",         left_delim: "\\{",        right_delim: "\\}" },
+//     { trigger_delim: "\\{",       left_delim: "\\{",        right_delim: "\\}" },
+//     { trigger_delim: "brace",     left_delim: "\\lbrace",   right_delim: "\\rbrace" },
+//     { trigger_delim: "<",         left_delim: "<",          right_delim: ">" },
+//     { trigger_delim: "|",         left_delim: "|",          right_delim: "|" },
+//     { trigger_delim: "vert",      left_delim: "\\lvert",    right_delim: "\\rvert" },
+//     { trigger_delim: "\\|",       left_delim: "\\|",        right_delim: "\\|" },
+//     { trigger_delim: "Vert",      left_delim: "\\lVert",    right_delim: "\\rVert" },
+//     { trigger_delim: "angle",     left_delim: "\\langle",   right_delim: "\\rangle" },
+//     { trigger_delim: "slash",     left_delim: "/",          right_delim: "\\backslash" },
+//     { trigger_delim: "ceil",      left_delim: "\\lceil",    right_delim: "\\rceil" },
+//     { trigger_delim: "floor",     left_delim: "\\lfloor",   right_delim: "\\rfloor" },
+//     { trigger_delim: "group",     left_delim: "\\lgroup",   right_delim: "\\rgroup" },
 //     { trigger_delim: "moustache", left_delim: "\\lmoustache", right_delim: "\\rmoustache" },
 // ];
 
@@ -137,13 +170,35 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 // const ENV_TALL = "(?:[pPbBvV]?matrix|smallmatrix|cases|dcases|rcases|drcases|array|aligned|gathered|split)\\*?";
 // const TALL_SYMBOLS = `\\\\(?:${MACRO_OP}|${FRACTION}|${BINOMIAL}|sqrt|begin\\{${ENV_TALL}\\})`;
 
-// // 标准正则安全转义（精准保留 1 层正则转义，彻底修复 \\{、\\| 与宏命令匹配失效）
 // function escapeRegex(str) {
 //     if (!str) return "";
 //     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // }
 
-// // 规范化 \left 与 \right 后的界定符符号
+// // 精确构建定界符在 RegExp 中的匹配模式（解决宏命令与标点符号的共存匹配）
+// function buildDelimPattern(delim) {
+//     if (!delim) return "";
+//     if (delim === "(") return "\\(";
+//     if (delim === ")") return "\\)";
+//     if (delim === "[") return "\\[";
+//     if (delim === "]") return "\\]";
+//     if (delim === "{" || delim === "\\{" || delim === "\\lbrace") return "(?:\\\\\\{|\\\\lbrace)";
+//     if (delim === "}" || delim === "\\}" || delim === "\\rbrace") return "(?:\\\\\\}|\\\\rbrace)";
+//     if (delim === "<" || delim === "\\langle") return "(?:<|\\\\langle)";
+//     if (delim === ">" || delim === "\\rangle") return "(?:>|\\\\rangle)";
+//     if (delim === "|") return "(?<![\\\\|])\\|(?![|])";
+//     if (delim === "\\|" || delim === "\\lVert" || delim === "\\rVert") return "(?:\\\\\\\\\\||\\\\lVert|\\\\rVert)";
+//     if (delim === "\\lvert") return "(?:(?<![\\\\|])\\||\\\\lvert)";
+//     if (delim === "\\rvert") return "(?:(?<![\\\\|])\\||\\\\rvert)";
+//     if (delim === "/") return "(?<!\\\\)/";
+//     if (delim === "\\backslash") return "\\\\backslash";
+//     if (delim === "\\lbrack") return "(?:\\[|\\\\lbrack)";
+//     if (delim === "\\rbrack") return "(?:\\]|\\\\rbrack)";
+//     if (delim.startsWith("\\")) return "\\\\" + delim.slice(1);
+//     return escapeRegex(delim);
+// }
+
+// // 规范化 \left 与 \right 后的 LaTeX 界定符
 // function formatLeftRightDelim(delim) {
 //     if (!delim) return ".";
 //     if (delim === "{" || delim === "}") return `\\${delim}`;
@@ -153,25 +208,31 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 // }
 
 // const generatedDelimiterSnippets = [];
+// const seenTriggers = new Set();
 
 // DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 //     const leftDisplay = left_delim ? (left_delim.startsWith("\\") && left_delim.length > 2 ? `${left_delim} ` : left_delim) : "";
 //     const rightDisplay = right_delim ? (right_delim.startsWith("\\") && right_delim.length > 2 ? ` ${right_delim}` : right_delim) : "";
 
-//     // 1. 构建精准防误触的触发词正则
+//     // 1. 严格转义的触发词安全正则（彻底消除空匹配和误触发）
 //     let safeTrigger = "";
 //     if (/^[a-zA-Z]+$/.test(trigger_delim)) {
-//         // 英文单词触发词（brace, vert, angle 等）：前面不能有字母或反斜杠（防止 \rbrace 触发 brace）
-//         safeTrigger = `(?<![a-zA-Z\\\\])${escapeRegex(trigger_delim)}`;
-//     } else if (trigger_delim.startsWith("\\")) {
-//         // 显式带反斜杠触发词（\{, \|）：精准匹配输入的 \{ 与 \|
-//         safeTrigger = escapeRegex(trigger_delim);
+//         safeTrigger = `(?<![a-zA-Z\\\\])${trigger_delim}`;
+//     } else if (trigger_delim === "\\|") {
+//         safeTrigger = "\\\\\\|";
+//     } else if (trigger_delim === "\\{") {
+//         safeTrigger = "\\\\\\{";
+//     } else if (trigger_delim === "|") {
+//         safeTrigger = "(?<![|\\\\])\\|(?![|])";
+//     } else if (trigger_delim === "<") {
+//         safeTrigger = "(?<![<\\\\=])<(?![=])";
+//     } else if (trigger_delim === "{") {
+//         safeTrigger = "(?<!\\\\)\\{";
 //     } else {
-//         // 纯标点触发词（(, [, {, <, |）：前面不能有反斜杠转义（避免输入 \{ 时误触发 {）
 //         safeTrigger = `(?<!\\\\)${escapeRegex(trigger_delim)}`;
 //     }
 
-//     // 基础展开 (按 Tab / 空格触发)
+//     // 基础展开 (手动按 Tab 展开)
 //     generatedDelimiterSnippets.push({
 //         trigger: safeTrigger,
 //         replacement: `${leftDisplay}$0${rightDisplay}$1`,
@@ -187,26 +248,19 @@ DELIMITER_PAIRS.forEach(({ trigger_delim, left_delim, right_delim }) => {
 //         description: `Wrap selection with ${trigger_delim}`
 //     });
 
-//     // 2. 自动放大规则 (输入高符号后自动添加 \left \right)
-//     const leftPat = escapeRegex(left_delim);
-//     const rightPat = escapeRegex(right_delim);
+//     // 2. 自动放大规则 (检测到高符号实时放大)
+//     const leftPat = buildDelimPattern(left_delim);
+//     const rightPat = buildDelimPattern(right_delim);
 
 //     const lDelim = formatLeftRightDelim(left_delim);
 //     const rDelim = formatLeftRightDelim(right_delim);
 //     const lReplacement = left_delim ? `\\left${lDelim} ` : "\\left. ";
 //     const rReplacement = right_delim ? ` \\right${rDelim}` : " \\right.";
 
-//     let autoEnlargeRegex = "";
+//     const autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)\\s*(?<!\\\\right\\s*)${rightPat}`;
 
-//     if (left_delim && right_delim) {
-//         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)${rightPat}(?!\\s*\\\\right)`;
-//     } else if (!left_delim && right_delim) {
-//         autoEnlargeRegex = `(?<!\\\\left\\.\\s*)((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)${rightPat}(?!\\s*\\\\right)`;
-//     } else if (left_delim && !right_delim) {
-//         autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}((?:(?!\\\\left|\\\\right)[^\\n$=])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n$])*?)(?!\\s*\\\\right\\.)`;
-//     }
-
-//     if (autoEnlargeRegex) {
+//     if (!seenTriggers.has(autoEnlargeRegex)) {
+//         seenTriggers.add(autoEnlargeRegex);
 //         generatedDelimiterSnippets.push({
 //             trigger: autoEnlargeRegex,
 //             replacement: (match) => `${lReplacement}${match[1].trim()}${rReplacement}$0`,
