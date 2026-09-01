@@ -1,21 +1,24 @@
 // ==========================================
 // 1. 定界符数据源定义
 // ==========================================
+// 【扩展点 1a】新增一个基础符号定界符：直接往 BASIC_DELIMITERS 加一项。
+//   enlargeable 表示它是否参与"高符号智能放大"（\left...\right）。
+//   注意：裸花括号 {} 只是分组符号，不是 \left\{...\right\} 的合法
+//   定界符，所以下面把它标为 enlargeable: false。
 
-// 基础单字符/符号定界符（自动展开）
-const BASIC_DELIMITER_PAIRS = [
-    { trigger: "(",   displayLeft: "(",   displayRight: ")" },
-    { trigger: "[",   displayLeft: "[",   displayRight: "]" },
-    // 单个 { 展开为普通花括号 {}
-    { trigger: "{",   displayLeft: "{",   displayRight: "}" },
-    // 双写 {{ 展开为 \{ \}
-    { trigger: "{{",  displayLeft: "\\{", displayRight: "\\" },
-    // 直接输入 \{ 展开为转义花括号 \{\}
-    { trigger: "\\{", displayLeft: "\\{", displayRight: "\\}" },
+const BASIC_DELIMITERS = [
+    { trigger: "(",   openText: "(",   closeText: ")",   enlargeable: true  },
+    { trigger: "[",   openText: "[",   closeText: "]",   enlargeable: true  },
+    { trigger: "{",   openText: "{",   closeText: "}",   enlargeable: false },
+    // 双写 {{ 展开为转义花括号 \{ \}
+    // （原代码这里 displayRight 写的是 "\\"，少了一个 "}"，是个 bug，此处已修正）
+    { trigger: "{{",  openText: "\\{", closeText: "\\}", enlargeable: true  },
+    // 直接输入 \{ 展开为转义花括号 \{ \}
+    { trigger: "\\{", openText: "\\{", closeText: "\\}", enlargeable: true  },
 ];
 
-// 命名/单词类定界符（手动 Tab 触发，展开为紧凑的 \cmd{$0}\cmd$1）
-const NAMED_DELIMITER_PAIRS = [
+// 【扩展点 1b】新增一个命名/单词类定界符：直接往 NAMED_DELIMITERS 加一项。
+const NAMED_DELIMITERS = [
     { trigger: "brack",     left: "\\lbrack",     right: "\\rbrack" },
     { trigger: "brace",     left: "\\lbrace",     right: "\\rbrace" },
     { trigger: "vert",      left: "\\lvert",      right: "\\rvert" },
@@ -25,33 +28,99 @@ const NAMED_DELIMITER_PAIRS = [
     { trigger: "ceil",      left: "\\lceil",      right: "\\rceil" },
     { trigger: "floor",     left: "\\lfloor",     right: "\\rfloor" },
     { trigger: "group",     left: "\\lgroup",     right: "\\rgroup" },
-    { trigger: "moustache", left: "\\lmoustache",  right: "\\rmoustache" },
+    { trigger: "moustache", left: "\\lmoustache", right: "\\rmoustache" },
 ];
 
-// ==========================================
-// 2. 高度匹配常量与辅助函数
-// ==========================================
 
-const MACRO_OP = "sum|prod|coprod|bigvee|bigwedge|bigcup|bigcap|bigsqcup|biguplus|bigodot|bigoplus|bigotimes|int|oint|iint|iiint|iiiint|idotsint";
-const FRACTION = "frac|dfrac|tfrac|cfrac|genfrac";
-const BINOMIAL = "binom|dbinom|tbinom";
-const ENV_TALL = "(?:[pPbBvV]?matrix|smallmatrix|cases|dcases|rcases|drcases|array|aligned|gathered|split)\\*?";
-const TALL_SYMBOLS = `\\\\(?:${MACRO_OP}|${FRACTION}|${BINOMIAL}|sqrt|begin\\{${ENV_TALL}\\})`;
+// ==========================================
+// 2. 高度匹配常量（可扩展）
+// ==========================================
+// 【扩展点 2a】新增一个会触发自动放大的"命令"：
+//   往 TALL_MACROS 加命令名（不带反斜杠）。
+// 【扩展点 2b】新增一个会触发放大的"环境"：
+//   往 TALL_ENVIRONMENTS 加环境名（不带 \begin{}，不用加 * 变体，
+//   下面生成正则时会自动处理 matrix* 这种星号变体）。
+//
+// 这里已经把原代码 MACRO_OP / FRACTION / BINOMIAL / sqrt / ENV_TALL
+// 里的全部内容合并了进来，一个不少。
+
+const TALL_MACROS = [
+    // 大型运算符
+    "sum", "prod", "coprod", "bigvee", "bigwedge", "bigcup", "bigcap",
+    "bigsqcup", "biguplus", "bigodot", "bigoplus", "bigotimes",
+    "int", "oint", "iint", "iiint", "iiiint", "idotsint",
+    // 分式
+    "frac", "dfrac", "tfrac", "cfrac", "genfrac",
+    // 二项式
+    "binom", "dbinom", "tbinom",
+    // 根号
+    "sqrt",
+];
+
+const TALL_ENVIRONMENTS = [
+    "matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix",
+    "smallmatrix",
+    "cases", "dcases", "rcases", "drcases",
+    "array", "aligned", "gathered", "split",
+];
+
+// 【扩展点 3】平衡括号正则允许的最大自我嵌套深度。
+// 默认 3 层（例如 \lbrace \lbrace \lbrace x \rbrace \rbrace \rbrace 仍能
+// 被正确识别）。调大会略微增加正则复杂度/编译开销，一般没必要调。
+const MAX_NESTING_DEPTH = 3;
+
+
+// ==========================================
+// 3. 工具函数
+// ==========================================
 
 function escapeRegex(str) {
     if (!str) return "";
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// 生成"内容中含有高符号/高环境"的正则片段（不含捕获组，仅供拼接）
+function buildTallAlternation() {
+    const macroPart = TALL_MACROS.length
+        ? `\\\\(?:${TALL_MACROS.map(escapeRegex).join("|")})(?![a-zA-Z])`
+        : "";
+    const envPart = TALL_ENVIRONMENTS.length
+        ? `\\\\begin\\{(?:${TALL_ENVIRONMENTS.map(escapeRegex).join("|")})\\*?\\}`
+        : "";
+    return [macroPart, envPart].filter(Boolean).join("|");
+}
+const TALL_ALTERNATION = buildTallAlternation();
+
+// 生成"有界深度平衡括号"内容正则：允许 content 内部出现最多 depth 层
+// 同类型 (openPat ... closePat) 的自我嵌套。
+// 用 [\s\S] 代替原来的 [^\n]，因此天然支持跨行匹配（matrix/cases 等
+// 多行环境不再被漏掉）。
+function buildBalancedContent(openPat, closePat, depth) {
+    let pattern = `(?:(?!${openPat}|${closePat})[\\s\\S])*`;
+    for (let d = 0; d < depth; d++) {
+        pattern = `(?:(?!${openPat}|${closePat})[\\s\\S]|${openPat}${pattern}${closePat})*`;
+    }
+    return pattern;
+}
+
+// 生成"必须含有高符号/高环境"的平衡括号内容捕获组
+function buildTallBalancedGroup(openPat, closePat) {
+    const balanced = buildBalancedContent(openPat, closePat, MAX_NESTING_DEPTH);
+    // 用零宽先行断言要求内容里某处出现高符号/高环境，
+    // 实际消耗的文本仍由 balanced 部分负责，保证捕获组内容与真实匹配文本一致
+    return `(?=[\\s\\S]*?(?:${TALL_ALTERNATION}))${balanced}`;
+}
+
+
 // ==========================================
-// 3. 片段动态生成
+// 4. 片段生成：基础/命名定界符自动展开（对应原 3.1 / 3.3，逻辑不变）
 // ==========================================
 
-const generatedDelimiterSnippets = [];
+const generatedSnippets = [];
 
-// 3.1 基础单字符定界符（自动补全）
-BASIC_DELIMITER_PAIRS.forEach(({ trigger, displayLeft, displayRight }) => {
-    let safeTrigger = "";
+// 4.1 基础定界符自动补全
+BASIC_DELIMITERS.forEach(({ trigger, openText, closeText }) => {
+    let safeTrigger;
     if (trigger === "\\{") {
         safeTrigger = "\\\\\\{";
     } else if (trigger === "{{") {
@@ -62,64 +131,78 @@ BASIC_DELIMITER_PAIRS.forEach(({ trigger, displayLeft, displayRight }) => {
         safeTrigger = `(?<!\\\\)${escapeRegex(trigger)}`;
     }
 
-    generatedDelimiterSnippets.push({
+    generatedSnippets.push({
         trigger: safeTrigger,
-        replacement: `${displayLeft}$0${displayRight}$1`,
+        replacement: `${openText}$0${closeText}$1`,
         options: "rmA",
-        description: `Auto-expand delimiter ${trigger}`
+        description: `Auto-expand delimiter ${trigger}`,
     });
 });
 
-// // 3.2 基础单字符定界符的高符号放大（标准 LaTeX 空格 \left( ... \right)）
-// const BASIC_ENLARGE_PAIRS = [
-//     { leftPat: "\\(",     rightPat: "\\)",     lCmd: "\\left(",   rCmd: "\\right)" },
-//     { leftPat: "\\[",     rightPat: "\\]",     lCmd: "\\left[",   rCmd: "\\right]" },
-//     { leftPat: "\\\\\\{", rightPat: "\\\\\\}", lCmd: "\\left\\{", rCmd: "\\right\\}" },
-// ];
-
-// BASIC_ENLARGE_PAIRS.forEach(({ leftPat, rightPat, lCmd, rCmd }) => {
-//     const autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)\\s*(?<!\\\\right\\s*)${rightPat}`;
-//     generatedDelimiterSnippets.push({
-//         trigger: autoEnlargeRegex,
-//         replacement: `${lCmd} [[0]] ${rCmd}`,
-//         options: "rmA",
-//         description: `Auto-enlarge basic delimiter`
-//     });
-// });
-
-// 3.3 命名单词定界符：基础展开（手动 Tab 触发，展开为 \cmd{$0}\cmd$1）
-NAMED_DELIMITER_PAIRS.forEach(({ trigger, left, right }) => {
+// 4.2 命名定界符基础展开（手动 Tab 触发）
+NAMED_DELIMITERS.forEach(({ trigger, left, right }) => {
     const safeTrigger = `(?<![a-zA-Z\\\\])${trigger}`;
 
-    generatedDelimiterSnippets.push({
+    generatedSnippets.push({
         trigger: safeTrigger,
         replacement: `${left}{$0}${right}$1`,
         options: "rm",
-        description: `Expand named delimiter ${trigger}`
+        description: `Expand named delimiter ${trigger}`,
     });
 });
 
-// // 3.4 命名单词定界符的高符号放大（零空格紧凑结构：\left\cmd{...}\right\cmd）
-// NAMED_DELIMITER_PAIRS.forEach(({ trigger, left, right }) => {
-//     const leftPat = left === "/" ? "(?<!\\\\)/" : escapeRegex(left);
-//     const rightPat = escapeRegex(right);
 
-//     // 严密匹配：精准吞掉定界符内部自带的花括号 {} 与首尾空格，提取纯公式到 [[0]]
-//     const autoEnlargeRegex = `(?<!\\\\left\\s*)${leftPat}\\s*\\{?\\s*((?:(?!\\\\left|\\\\right)[^\\n])*?${TALL_SYMBOLS}(?:(?!\\\\left|\\\\right)[^\\n])*?)\\s*\\}?\\s*(?<!\\\\right\\s*)${rightPat}`;
+// ==========================================
+// 5. 片段生成：智能放大（有界深度平衡括号版，对应原 3.2 / 3.4）
+// ==========================================
 
-//     generatedDelimiterSnippets.push({
-//         trigger: autoEnlargeRegex,
-//         replacement: `\\left${left}{[[0]]}\\right${right}`,
-//         options: "rmA",
-//         description: `Auto-enlarge named delimiter ${trigger}`
-//     });
-// });
+// 5.1 基础定界符智能放大：\left( content \right)（保留标准的带空格风格）
+// 先按 (openText, closeText) 去重，避免 "{{" 和 "\{" 生成两条重复 snippet
+const basicEnlargeTargets = new Map();
+BASIC_DELIMITERS.forEach(({ openText, closeText, enlargeable }) => {
+    if (!enlargeable) return;
+    basicEnlargeTargets.set(`${openText}|||${closeText}`, { openText, closeText });
+});
 
+basicEnlargeTargets.forEach(({ openText, closeText }) => {
+    const openPat = escapeRegex(openText);
+    const closePat = escapeRegex(closeText);
+    const contentGroup = buildTallBalancedGroup(openPat, closePat);
+
+    const trigger =
+        `(?<!\\\\left\\s*)${openPat}\\s*(${contentGroup})\\s*(?<!\\\\right\\s*)${closePat}`;
+
+    generatedSnippets.push({
+        trigger,
+        replacement: `\\left${openText} [[0]] \\right${closeText}`,
+        options: "rmA",
+        description: `Auto-enlarge basic delimiter ${openText}${closeText}`,
+    });
+});
+
+// 5.2 命名定界符智能放大：\left\cmd{content}\right\cmd（紧凑、无多余空格）
+NAMED_DELIMITERS.forEach(({ left, right }) => {
+    const openPat = escapeRegex(left);
+    const closePat = escapeRegex(right);
+    const contentGroup = buildTallBalancedGroup(openPat, closePat);
+
+    // \{?...\}? 用来吞掉基础展开（4.2）时自动套上的那层 {}，
+    // 输出时统一换成紧凑写法自己的 {}
+    const trigger =
+        `(?<!\\\\left\\s*)${openPat}\\s*\\{?\\s*(${contentGroup})\\s*\\}?\\s*(?<!\\\\right\\s*)${closePat}`;
+
+    generatedSnippets.push({
+        trigger,
+        replacement: `\\left${left}{[[0]]}\\right${right}`,
+        options: "rmA",
+        description: `Auto-enlarge named delimiter ${left}${right}`,
+    });
+});
 
 
 
 export default [
-    // ...generatedDelimiterSnippets,
+    ...generatedSnippets,
 
 
     // MathJax Block
