@@ -18,5 +18,5 @@
   },
   "autoPairMarkdown": false,
   "promptDelete": false,
-  "autoPairBrackets": false
+  "autoPairBrackets": true
 }

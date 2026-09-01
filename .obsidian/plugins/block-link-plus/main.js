@@ -11623,6 +11623,7 @@ var DEFAULT_SETTINGS = {
   fileOutlinerChildrenOnSplit: "keep",
   fileOutlinerPasteMultiline: "split",
   fileOutlinerBackspaceWithChildren: "merge",
+  fileOutlinerMoveMode: "same-level",
   fileOutlinerEditorContextMenuEnabled: true,
   fileOutlinerEditorContextMenuAllowedPlugins: [],
   fileOutlinerEditorCommandBridgeEnabled: true,
@@ -15211,6 +15212,14 @@ var T = class {
                 outdent: "Prefer outdent"
               }
             },
+            moveMode: {
+              name: "Block move mode",
+              desc: "Choose how Alt+Arrow moves the active block.",
+              options: {
+                sameLevel: "Same-level only",
+                crossLevelAlign: "Cross-level align"
+              }
+            },
             tasksHelp: {
               name: "Tasks",
               desc: 'Task blocks use Obsidian-native `- [ ]` / `- [x]` on disk. Commands: "${toggleTaskStatus}" (Mod+Enter) and "${toggleTaskMarker}" (Mod+Shift+Enter). Configure hotkeys in Settings -> Hotkeys.'
@@ -15221,7 +15230,9 @@ var T = class {
             },
             commands: {
               toggleTaskStatus: "Outliner: Toggle task status",
-              toggleTaskMarker: "Outliner: Toggle task marker"
+              toggleTaskMarker: "Outliner: Toggle task marker",
+              moveActiveBlockUp: "Outliner: Move active block up",
+              moveActiveBlockDown: "Outliner: Move active block down"
             },
             contextMenu: {
               copyBlockReference: "Copy block reference",
@@ -15753,6 +15764,14 @@ var T = class {
                 outdent: "\u4F18\u5148 Outdent"
               }
             },
+            moveMode: {
+              name: "\u5757\u79FB\u52A8\u6A21\u5F0F",
+              desc: "\u9009\u62E9 Alt+\u65B9\u5411\u952E\u79FB\u52A8\u5F53\u524D\u5757\u7684\u65B9\u5F0F\u3002",
+              options: {
+                sameLevel: "\u4EC5\u540C\u5C42\u7EA7",
+                crossLevelAlign: "\u8DE8\u5C42\u7EA7\u5BF9\u9F50"
+              }
+            },
             tasksHelp: {
               name: "\u4EFB\u52A1",
               desc: '\u4EFB\u52A1\u5757\u5728\u78C1\u76D8\u4E0A\u4F7F\u7528 Obsidian \u539F\u751F\u7684 `- [ ]` / `- [x]` \u8BED\u6CD5\u3002\u547D\u4EE4\uFF1A"${toggleTaskStatus}"\uFF08Mod+Enter\uFF09\u4E0E "${toggleTaskMarker}"\uFF08Mod+Shift+Enter\uFF09\u3002\u53EF\u5728 \u8BBE\u7F6E -> \u5FEB\u6377\u952E \u4E2D\u914D\u7F6E\u3002'
@@ -15763,7 +15782,9 @@ var T = class {
             },
             commands: {
               toggleTaskStatus: "Outliner\uFF1A\u5207\u6362\u4EFB\u52A1\u72B6\u6001",
-              toggleTaskMarker: "Outliner\uFF1A\u5207\u6362\u4EFB\u52A1\u6807\u8BB0"
+              toggleTaskMarker: "Outliner\uFF1A\u5207\u6362\u4EFB\u52A1\u6807\u8BB0",
+              moveActiveBlockUp: "Outliner\uFF1A\u5411\u4E0A\u79FB\u52A8\u5F53\u524D\u5757",
+              moveActiveBlockDown: "Outliner\uFF1A\u5411\u4E0B\u79FB\u52A8\u5F53\u524D\u5757"
             },
             contextMenu: {
               copyBlockReference: "\u590D\u5236\u5757\u5F15\u7528",
@@ -16295,6 +16316,14 @@ var T = class {
                 outdent: "\u512A\u5148 Outdent"
               }
             },
+            moveMode: {
+              name: "\u5340\u584A\u79FB\u52D5\u6A21\u5F0F",
+              desc: "\u9078\u64C7 Alt+\u65B9\u5411\u9375\u79FB\u52D5\u76EE\u524D\u5340\u584A\u7684\u65B9\u5F0F\u3002",
+              options: {
+                sameLevel: "\u50C5\u540C\u5C64\u7D1A",
+                crossLevelAlign: "\u8DE8\u5C64\u7D1A\u5C0D\u9F4A"
+              }
+            },
             tasksHelp: {
               name: "\u4EFB\u52D9",
               desc: '\u4EFB\u52D9\u5340\u584A\u5728\u78C1\u789F\u4E0A\u4F7F\u7528 Obsidian \u539F\u751F\u7684 `- [ ]` / `- [x]` \u8A9E\u6CD5\u3002\u547D\u4EE4\uFF1A"${toggleTaskStatus}"\uFF08Mod+Enter\uFF09\u8207 "${toggleTaskMarker}"\uFF08Mod+Shift+Enter\uFF09\u3002\u53EF\u5728 \u8A2D\u5B9A -> \u5FEB\u6377\u9375 \u4E2D\u8A2D\u5B9A\u3002'
@@ -16305,7 +16334,9 @@ var T = class {
             },
             commands: {
               toggleTaskStatus: "Outliner\uFF1A\u5207\u63DB\u4EFB\u52D9\u72C0\u614B",
-              toggleTaskMarker: "Outliner\uFF1A\u5207\u63DB\u4EFB\u52D9\u6A19\u8A18"
+              toggleTaskMarker: "Outliner\uFF1A\u5207\u63DB\u4EFB\u52D9\u6A19\u8A18",
+              moveActiveBlockUp: "Outliner\uFF1A\u5411\u4E0A\u79FB\u52D5\u76EE\u524D\u5340\u584A",
+              moveActiveBlockDown: "Outliner\uFF1A\u5411\u4E0B\u79FB\u52D5\u76EE\u524D\u5340\u584A"
             },
             contextMenu: {
               copyBlockReference: "\u8907\u88FD\u5340\u584A\u5F15\u7528",
@@ -16692,7 +16723,9 @@ function getDataviewApi() {
 // src/features/file-outliner-view/labels.ts
 var FALLBACK_COMMANDS = {
   toggleTaskStatus: "Outliner: Toggle task status",
-  toggleTaskMarker: "Outliner: Toggle task marker"
+  toggleTaskMarker: "Outliner: Toggle task marker",
+  moveActiveBlockUp: "Outliner: Move active block up",
+  moveActiveBlockDown: "Outliner: Move active block down"
 };
 var FALLBACK_CONTEXT_MENU = {
   copyBlockReference: "Copy block reference",
@@ -16709,13 +16742,15 @@ var FALLBACK_CONTEXT_MENU = {
   expand: "Expand"
 };
 function getFileOutlinerCommandLabels() {
-  var _a2, _b2, _c2, _d2;
+  var _a2, _b2, _c2, _d2, _e2, _f2;
   const raw = (_b2 = (_a2 = i18n_default.settings) == null ? void 0 : _a2.fileOutliner) == null ? void 0 : _b2.commands;
   if (!raw)
     return FALLBACK_COMMANDS;
   return {
     toggleTaskStatus: String((_c2 = raw.toggleTaskStatus) != null ? _c2 : FALLBACK_COMMANDS.toggleTaskStatus),
-    toggleTaskMarker: String((_d2 = raw.toggleTaskMarker) != null ? _d2 : FALLBACK_COMMANDS.toggleTaskMarker)
+    toggleTaskMarker: String((_d2 = raw.toggleTaskMarker) != null ? _d2 : FALLBACK_COMMANDS.toggleTaskMarker),
+    moveActiveBlockUp: String((_e2 = raw.moveActiveBlockUp) != null ? _e2 : FALLBACK_COMMANDS.moveActiveBlockUp),
+    moveActiveBlockDown: String((_f2 = raw.moveActiveBlockDown) != null ? _f2 : FALLBACK_COMMANDS.moveActiveBlockDown)
   };
 }
 function getFileOutlinerContextMenuLabels() {
@@ -17558,6 +17593,18 @@ var BlockLinkPlusSettingsTab = class extends import_obsidian10.PluginSettingTab 
       this.addToggleSetting("inlineEditBlock", void 0, rootEl).setName(i18n_default.settings.inlineEdit.block.name).setDesc(i18n_default.settings.inlineEdit.block.desc);
     }
   }
+  renderFileOutlinerMoveModeSetting(rootEl) {
+    const ui = i18n_default.settings.fileOutliner;
+    new import_obsidian10.Setting(rootEl).setName(ui.moveMode.name).setDesc(ui.moveMode.desc).addDropdown((dropdown) => {
+      var _a2;
+      dropdown.addOption("same-level", ui.moveMode.options.sameLevel).addOption("cross-level-align", ui.moveMode.options.crossLevelAlign).setValue((_a2 = this.plugin.settings.fileOutlinerMoveMode) != null ? _a2 : "same-level").setDisabled(!this.plugin.settings.fileOutlinerViewEnabled).onChange(async (value) => {
+        if (value !== "same-level" && value !== "cross-level-align")
+          return;
+        this.plugin.settings.fileOutlinerMoveMode = value;
+        await this.plugin.saveSettings();
+      });
+    });
+  }
   renderFileOutlinerTab(rootEl) {
     var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q;
     const ui = i18n_default.settings.fileOutliner;
@@ -17627,6 +17674,7 @@ var BlockLinkPlusSettingsTab = class extends import_obsidian10.PluginSettingTab 
         await this.plugin.saveSettings();
       });
     });
+    this.renderFileOutlinerMoveModeSetting(rootEl);
     const cmdLabels = getFileOutlinerCommandLabels();
     const tasksHelpDesc = String((_i = ui.tasksHelp.desc) != null ? _i : "").replace("${toggleTaskStatus}", cmdLabels.toggleTaskStatus).replace("${toggleTaskMarker}", cmdLabels.toggleTaskMarker);
     new import_obsidian10.Setting(rootEl).setName(ui.tasksHelp.name).setDesc(tasksHelpDesc);
@@ -18476,6 +18524,29 @@ var WHATS_NEW_V2_0_16 = {
     "Outliner\uFF1A\u4F86\u6E90\u884C\u5C0E\u822A\u548C\u641C\u5C0B\u73FE\u5728\u80FD\u66F4\u53EF\u9760\u5730\u5B9A\u4F4D\u5230\u6240\u5C6C block\u3002"
   ]
 };
+var WHATS_NEW_V2_0_17 = {
+  en: [
+    "Outliner: move the active block subtree with Alt+ArrowUp / Alt+ArrowDown; choose same-level-only or cross-level alignment in settings.",
+    "Outliner: completing a `[[` suggestion now leaves the caret at the correct post-insert position.",
+    "Inline Edit: nested block embeds now render their intended native block content.",
+    "Journal Feed: fixed its continuous-feed layout to follow Obsidian's readable line width and native content inset.",
+    "blp-view: live day-grouped embed lists now display as a compact timeline."
+  ],
+  zh: [
+    "Outliner\uFF1A\u652F\u6301\u7528 Alt+\u2191 / Alt+\u2193 \u79FB\u52A8\u5F53\u524D block \u5B50\u6811\uFF1B\u53EF\u5728\u8BBE\u7F6E\u4E2D\u9009\u62E9\u4EC5\u540C\u5C42\u7EA7\u6216\u8DE8\u5C42\u7EA7\u5BF9\u9F50\u3002",
+    "Outliner\uFF1A\u5B8C\u6210 `[[` \u5EFA\u8BAE\u540E\uFF0C\u5149\u6807\u4F1A\u6B63\u786E\u505C\u7559\u5728\u63D2\u5165\u5185\u5BB9\u4E4B\u540E\u3002",
+    "\u5185\u5D4C\u7F16\u8F91\uFF1A\u5D4C\u5957 block embed \u73B0\u5728\u53EA\u6E32\u67D3\u76EE\u6807 block \u7684\u539F\u751F\u5185\u5BB9\u3002",
+    "Journal Feed\uFF1A\u4FEE\u590D\u8FDE\u7EED\u65E5\u8BB0\u6D41\u5E03\u5C40\uFF0C\u4F7F\u5176\u9075\u5FAA Obsidian \u7684\u53EF\u8BFB\u884C\u5BBD\u4E0E\u539F\u751F\u5185\u5BB9\u5185\u7F29\u3002",
+    "blp-view\uFF1A\u5B9E\u65F6\u6309\u65E5\u5206\u7EC4\u7684 embed \u5217\u8868\u73B0\u5728\u4F1A\u4EE5\u7D27\u51D1\u65F6\u95F4\u7EBF\u5448\u73B0\u3002"
+  ],
+  "zh-TW": [
+    "Outliner\uFF1A\u652F\u63F4\u7528 Alt+\u2191 / Alt+\u2193 \u79FB\u52D5\u76EE\u524D block \u5B50\u6A39\uFF1B\u53EF\u5728\u8A2D\u5B9A\u4E2D\u9078\u64C7\u50C5\u540C\u5C64\u7D1A\u6216\u8DE8\u5C64\u7D1A\u5C0D\u9F4A\u3002",
+    "Outliner\uFF1A\u5B8C\u6210 `[[` \u5EFA\u8B70\u5F8C\uFF0C\u6E38\u6A19\u6703\u6B63\u78BA\u505C\u7559\u5728\u63D2\u5165\u5167\u5BB9\u4E4B\u5F8C\u3002",
+    "\u5167\u5D4C\u7DE8\u8F2F\uFF1A\u5DE2\u72C0 block embed \u73FE\u5728\u53EA\u6E32\u67D3\u76EE\u6A19 block \u7684\u539F\u751F\u5167\u5BB9\u3002",
+    "Journal Feed\uFF1A\u4FEE\u6B63\u9023\u7E8C\u65E5\u8A18\u6D41\u7248\u9762\uFF0C\u4F7F\u5176\u9075\u5FAA Obsidian \u7684\u53EF\u8B80\u884C\u5BEC\u8207\u539F\u751F\u5167\u5BB9\u5167\u7E2E\u3002",
+    "blp-view\uFF1A\u5373\u6642\u6309\u65E5\u5206\u7D44\u7684 embed \u5217\u8868\u73FE\u5728\u6703\u4EE5\u7DCA\u6E4A\u6642\u9593\u7DDA\u5448\u73FE\u3002"
+  ]
+};
 var WhatsNewModal = class extends import_obsidian13.Modal {
   constructor(app, options) {
     super(app);
@@ -18514,39 +18585,42 @@ var WhatsNewModal = class extends import_obsidian13.Modal {
     this.contentEl.empty();
   }
   getWhatsNewItems() {
-    var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j;
+    var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k;
     if (this.currentVersion === "1.8.0") {
       return i18n_default.whatsNew.v1_8_0;
     }
+    if (this.currentVersion === "2.0.17") {
+      return (_a2 = WHATS_NEW_V2_0_17[i18n_default.lang]) != null ? _a2 : WHATS_NEW_V2_0_17.en;
+    }
     if (this.currentVersion === "2.0.16") {
-      return (_a2 = WHATS_NEW_V2_0_16[i18n_default.lang]) != null ? _a2 : WHATS_NEW_V2_0_16.en;
+      return (_b2 = WHATS_NEW_V2_0_16[i18n_default.lang]) != null ? _b2 : WHATS_NEW_V2_0_16.en;
     }
     if (this.currentVersion === "2.0.15") {
-      return (_b2 = WHATS_NEW_V2_0_15[i18n_default.lang]) != null ? _b2 : WHATS_NEW_V2_0_15.en;
+      return (_c2 = WHATS_NEW_V2_0_15[i18n_default.lang]) != null ? _c2 : WHATS_NEW_V2_0_15.en;
     }
     if (this.currentVersion === "2.0.13") {
-      return (_c2 = WHATS_NEW_V2_0_13[i18n_default.lang]) != null ? _c2 : WHATS_NEW_V2_0_13.en;
+      return (_d2 = WHATS_NEW_V2_0_13[i18n_default.lang]) != null ? _d2 : WHATS_NEW_V2_0_13.en;
     }
     if (this.currentVersion === "2.0.6") {
-      return (_d2 = WHATS_NEW_V2_0_6[i18n_default.lang]) != null ? _d2 : WHATS_NEW_V2_0_6.en;
+      return (_e2 = WHATS_NEW_V2_0_6[i18n_default.lang]) != null ? _e2 : WHATS_NEW_V2_0_6.en;
     }
     if (this.currentVersion === "2.0.5") {
-      return (_e2 = WHATS_NEW_V2_0_5[i18n_default.lang]) != null ? _e2 : WHATS_NEW_V2_0_5.en;
+      return (_f2 = WHATS_NEW_V2_0_5[i18n_default.lang]) != null ? _f2 : WHATS_NEW_V2_0_5.en;
     }
     if (this.currentVersion === "2.0.4") {
-      return (_f2 = WHATS_NEW_V2_0_4[i18n_default.lang]) != null ? _f2 : WHATS_NEW_V2_0_4.en;
+      return (_g = WHATS_NEW_V2_0_4[i18n_default.lang]) != null ? _g : WHATS_NEW_V2_0_4.en;
     }
     if (this.currentVersion === "2.0.3") {
-      return (_g = WHATS_NEW_V2_0_3[i18n_default.lang]) != null ? _g : WHATS_NEW_V2_0_3.en;
+      return (_h = WHATS_NEW_V2_0_3[i18n_default.lang]) != null ? _h : WHATS_NEW_V2_0_3.en;
     }
     if (this.currentVersion === "2.0.2") {
-      return (_h = WHATS_NEW_V2_0_2[i18n_default.lang]) != null ? _h : WHATS_NEW_V2_0_2.en;
+      return (_i = WHATS_NEW_V2_0_2[i18n_default.lang]) != null ? _i : WHATS_NEW_V2_0_2.en;
     }
     if (this.currentVersion === "2.0.1") {
-      return (_i = WHATS_NEW_V2_0_1[i18n_default.lang]) != null ? _i : WHATS_NEW_V2_0_1.en;
+      return (_j = WHATS_NEW_V2_0_1[i18n_default.lang]) != null ? _j : WHATS_NEW_V2_0_1.en;
     }
     if (this.currentVersion === "2.0.0" || this.currentVersion.startsWith("2.0.")) {
-      return (_j = WHATS_NEW_V2[i18n_default.lang]) != null ? _j : WHATS_NEW_V2.en;
+      return (_k = WHATS_NEW_V2[i18n_default.lang]) != null ? _k : WHATS_NEW_V2.en;
     }
     return i18n_default.whatsNew.fallback;
   }
@@ -26104,6 +26178,12 @@ function rebuildTreeFromLinear(linear) {
   }
   return roots;
 }
+function clearSourceLineRanges(list) {
+  for (const block of list) {
+    delete block._sourceLineRanges;
+    clearSourceLineRanges(block.children);
+  }
+}
 function findLinearIndexById(linear, id) {
   return linear.findIndex((b) => b.id === id);
 }
@@ -26391,6 +26471,185 @@ function moveBlockSubtree(file, sourceId, targetId, where) {
   if (destParent)
     dirtyIds.add(destParent.id);
   return { file: next, selection: { id: sourceId, start: 0, end: 0 }, dirtyIds, didChange: true };
+}
+function collectVisibleBlockIds(blocks, collapsedIds, out = []) {
+  var _a2;
+  for (const block of blocks) {
+    if (!(block == null ? void 0 : block.id))
+      continue;
+    out.push(block.id);
+    if (collapsedIds.has(block.id))
+      continue;
+    collectVisibleBlockIds((_a2 = block.children) != null ? _a2 : [], collapsedIds, out);
+  }
+  return out;
+}
+function findBlockById(list, id) {
+  var _a2;
+  for (const block of list) {
+    if (block.id === id)
+      return block;
+    const child = findBlockById((_a2 = block.children) != null ? _a2 : [], id);
+    if (child)
+      return child;
+  }
+  return null;
+}
+function subtreeContainsId(block, id) {
+  var _a2;
+  if (block.id === id)
+    return true;
+  return ((_a2 = block.children) != null ? _a2 : []).some((child) => subtreeContainsId(child, id));
+}
+function linearBlockStates(linear) {
+  const states = /* @__PURE__ */ new Map();
+  for (let index = 0; index < linear.length; index++) {
+    const block = linear[index];
+    if (!(block == null ? void 0 : block.id))
+      continue;
+    states.set(block.id, {
+      index,
+      depth: block.depth,
+      parentId: findLinearParentId(linear, index)
+    });
+  }
+  return states;
+}
+function collectChangedLinearIds(before, after) {
+  const beforeStates = linearBlockStates(before);
+  const afterStates = linearBlockStates(after);
+  const dirtyIds = /* @__PURE__ */ new Set();
+  for (const [id, beforeState] of beforeStates) {
+    const afterState = afterStates.get(id);
+    if (!afterState)
+      continue;
+    if (beforeState.index !== afterState.index || beforeState.depth !== afterState.depth || beforeState.parentId !== afterState.parentId) {
+      dirtyIds.add(id);
+    }
+  }
+  return dirtyIds;
+}
+function moveBlockByDirection(file, sel, direction, mode, opts = {}) {
+  var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+  const noChange = () => ({
+    file,
+    selection: sel,
+    dirtyIds: /* @__PURE__ */ new Set(),
+    didChange: false
+  });
+  if (!(sel == null ? void 0 : sel.id) || direction !== "up" && direction !== "down")
+    return noChange();
+  if (mode !== "same-level" && mode !== "cross-level-align")
+    return noChange();
+  const zoomRootId = (_a2 = opts.zoomRootId) != null ? _a2 : null;
+  const collapsedIds = (_b2 = opts.collapsedIds) != null ? _b2 : /* @__PURE__ */ new Set();
+  let visibleScope = (_c2 = file.blocks) != null ? _c2 : [];
+  if (zoomRootId) {
+    const zoomRoot = findBlockById(visibleScope, zoomRootId);
+    if (!zoomRoot)
+      return noChange();
+    visibleScope = [zoomRoot];
+  }
+  const visibleIds = collectVisibleBlockIds(visibleScope, collapsedIds);
+  const sourceVisibleIndex = visibleIds.indexOf(sel.id);
+  if (sourceVisibleIndex < 0)
+    return noChange();
+  const sourceLoc = findBlockLocation((_d2 = file.blocks) != null ? _d2 : [], sel.id, null);
+  if (!sourceLoc)
+    return noChange();
+  const sourceIds = /* @__PURE__ */ new Set();
+  collectIds([sourceLoc.block], sourceIds);
+  let targetId = null;
+  if (mode === "same-level") {
+    const targetIndex2 = sourceLoc.index + (direction === "up" ? -1 : 1);
+    const sibling = sourceLoc.siblings[targetIndex2];
+    targetId = (_e2 = sibling == null ? void 0 : sibling.id) != null ? _e2 : null;
+    if (targetId && !visibleIds.includes(targetId))
+      targetId = null;
+  } else if (direction === "up") {
+    for (let index = sourceVisibleIndex - 1; index >= 0; index--) {
+      const candidate = visibleIds[index];
+      if (!candidate || sourceIds.has(candidate))
+        continue;
+      const candidateBlock = findBlockById((_f2 = file.blocks) != null ? _f2 : [], candidate);
+      if (!candidateBlock || subtreeContainsId(candidateBlock, sel.id))
+        continue;
+      targetId = candidate;
+      break;
+    }
+  } else {
+    for (let index = sourceVisibleIndex + 1; index < visibleIds.length; index++) {
+      const candidate = visibleIds[index];
+      if (!candidate || sourceIds.has(candidate))
+        continue;
+      const candidateBlock = findBlockById((_g = file.blocks) != null ? _g : [], candidate);
+      if (!candidateBlock || subtreeContainsId(candidateBlock, sel.id))
+        continue;
+      targetId = candidate;
+      break;
+    }
+  }
+  if (!targetId || targetId === zoomRootId)
+    return noChange();
+  if (zoomRootId === sel.id)
+    return noChange();
+  const targetLoc = findBlockLocation((_h = file.blocks) != null ? _h : [], targetId, null);
+  if (!targetLoc)
+    return noChange();
+  if (mode === "same-level") {
+    const sourceParentId = (_j = (_i = sourceLoc.parent) == null ? void 0 : _i.id) != null ? _j : null;
+    const targetParentId = (_l = (_k = targetLoc.parent) == null ? void 0 : _k.id) != null ? _l : null;
+    if (sourceParentId !== targetParentId)
+      return noChange();
+  }
+  const linear = linearizeBlocks((_m = file.blocks) != null ? _m : []);
+  const sourceStart = findLinearIndexById(linear, sel.id);
+  if (sourceStart < 0)
+    return noChange();
+  const sourceEnd = findLinearDescendantEnd(linear, sourceStart);
+  const sourceSegment = linear.slice(sourceStart, sourceEnd);
+  if (sourceSegment.length === 0)
+    return noChange();
+  const remaining = linear.filter((_, index) => index < sourceStart || index >= sourceEnd);
+  const targetIndex = findLinearIndexById(remaining, targetId);
+  if (targetIndex < 0)
+    return noChange();
+  const targetDepth = (_n = remaining[targetIndex]) == null ? void 0 : _n.depth;
+  const sourceDepth = (_o = sourceSegment[0]) == null ? void 0 : _o.depth;
+  if (targetDepth === void 0 || sourceDepth === void 0)
+    return noChange();
+  const moveSegment = sourceSegment.map((block) => {
+    const relativeDepth = Math.max(0, block.depth - sourceDepth);
+    return {
+      ...block,
+      depth: mode === "cross-level-align" ? targetDepth + relativeDepth : block.depth,
+      children: []
+    };
+  });
+  const insertAt = direction === "up" ? targetIndex : findLinearDescendantEnd(remaining, targetIndex);
+  const resultLinear = [
+    ...remaining.slice(0, insertAt),
+    ...moveSegment,
+    ...remaining.slice(insertAt)
+  ];
+  if (!isValidLinearDepthSequence(resultLinear))
+    return noChange();
+  let resultBlocks;
+  try {
+    resultBlocks = rebuildTreeFromLinear(resultLinear);
+  } catch (e) {
+    return noChange();
+  }
+  clearSourceLineRanges(resultBlocks);
+  const dirtyIds = collectChangedLinearIds(linear, resultLinear);
+  if (dirtyIds.size === 0)
+    return noChange();
+  return {
+    file: { frontmatter: file.frontmatter, blocks: resultBlocks },
+    selection: sel,
+    dirtyIds,
+    didChange: true
+  };
 }
 function mergeWithPrevious(file, sel) {
   var _a2, _b2, _c2;
@@ -27894,14 +28153,16 @@ var OutlinerSuggestEditor = class extends import_obsidian18.Editor {
       const b = c.to ? posToOffset(doc, c.to) : a;
       changes.push({ from: Math.min(a, b), to: Math.max(a, b), insert: String((_b2 = c.text) != null ? _b2 : "") });
     }
-    let selection;
-    if (tx.selection) {
-      const a = posToOffset(doc, tx.selection.from);
-      const h = tx.selection.to ? posToOffset(doc, tx.selection.to) : a;
-      selection = { anchor: a, head: h };
-    }
     try {
-      this.cm.dispatch({ changes, selection });
+      const cmChanges = changes.length ? this.cm.state.changes(changes) : void 0;
+      const selectionDoc = cmChanges ? cmChanges.apply(doc) : doc;
+      let selection;
+      if (tx.selection) {
+        const a = posToOffset(selectionDoc, tx.selection.from);
+        const h = tx.selection.to ? posToOffset(selectionDoc, tx.selection.to) : a;
+        selection = { anchor: a, head: h };
+      }
+      this.cm.dispatch({ changes: cmChanges, selection });
     } catch (e) {
     }
   }
@@ -29061,6 +29322,51 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       return false;
     return this.onEditorToggleTaskMarker();
   }
+  isActiveBlockEditorFocused() {
+    if (!this.editingId || !this.editorView || !this.editorHostEl)
+      return false;
+    if (this.editorHostEl.style.display === "none")
+      return false;
+    let editorHasFocus = false;
+    try {
+      const hasFocus = this.editorView.hasFocus;
+      editorHasFocus = typeof hasFocus === "function" ? Boolean(hasFocus.call(this.editorView)) : Boolean(hasFocus);
+    } catch (err) {
+      this.debugLog("isActiveBlockEditorFocused/editor", err);
+    }
+    if (!editorHasFocus) {
+      try {
+        const active = document.activeElement;
+        editorHasFocus = Boolean(active && this.editorHostEl.contains(active));
+      } catch (err) {
+        this.debugLog("isActiveBlockEditorFocused/activeElement", err);
+      }
+    }
+    return editorHasFocus && this.isLeafActiveOrFocused();
+  }
+  moveActiveBlock(direction) {
+    var _a2;
+    if (!this.isActiveBlockEditorFocused())
+      return false;
+    if (!this.outlinerFile)
+      return false;
+    const selection = this.getActiveSelection();
+    if (!selection)
+      return false;
+    const result = moveBlockByDirection(
+      this.outlinerFile,
+      selection,
+      direction,
+      (_a2 = this.plugin.settings.fileOutlinerMoveMode) != null ? _a2 : "same-level",
+      {
+        zoomRootId: this.getZoomRootId(),
+        collapsedIds: this.collapsedIds
+      }
+    );
+    if (!result.didChange)
+      return false;
+    return this.applyStructuralEngineResult(result, selection, { preserveViewport: true });
+  }
   debugLog(scope, err) {
     if (this.plugin.settings.fileOutlinerDebugLogging !== true)
       return;
@@ -29309,11 +29615,12 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     this.focusEditorWithoutContainerScroll();
     this.updateActiveEditorBridge();
   }
-  captureViewportRestore(focusId) {
+  captureViewportRestore(focusId, opts) {
     this.pendingViewportRestore = {
       scrollTop: this.contentEl.scrollTop,
       scrollLeft: this.contentEl.scrollLeft,
-      focusId
+      focusId,
+      preservePosition: (opts == null ? void 0 : opts.preservePosition) === true
     };
   }
   clearPendingViewportRestore() {
@@ -29338,6 +29645,8 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     this.pendingViewportRestore = null;
     this.contentEl.scrollTop = pending.scrollTop;
     this.contentEl.scrollLeft = pending.scrollLeft;
+    if (pending.preservePosition)
+      return;
     const row = this.dom.getBlockEl(pending.focusId);
     if (!row)
       return;
@@ -30562,7 +30871,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       cursorEnd: nextSelection.end,
       scroll: false
     };
-    this.captureViewportRestore(nextSelection.id);
+    this.captureViewportRestore(nextSelection.id, { preservePosition: true });
     this.pendingScrollToId = null;
     this.render();
     this.markDirtyAndRequestSave();
@@ -30605,8 +30914,11 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       };
       if ((opts == null ? void 0 : opts.scroll) === true)
         this.clearPendingViewportRestore();
-      else
+      else if ((opts == null ? void 0 : opts.preserveViewport) === true) {
+        this.captureViewportRestore(result.selection.id, { preservePosition: true });
+      } else {
         this.captureViewportRestore(result.selection.id);
+      }
       this.pendingScrollToId = null;
     } else {
       this.pendingFocus = null;
@@ -31096,10 +31408,115 @@ function registerFileOutlinerMarkdownPaneMenu(plugin) {
   );
 }
 
+// src/features/journal-feed-view/OutlinerEmbedLeafManager.ts
+var import_obsidian22 = require("obsidian");
+var activeOutlinerEmbedsByPlugin = /* @__PURE__ */ new Map();
+function getActiveOutlinerEmbedViews(plugin) {
+  var _a2;
+  return Array.from((_a2 = activeOutlinerEmbedsByPlugin.get(plugin)) != null ? _a2 : [], (embed) => embed.view).filter(Boolean);
+}
+function registerActiveOutlinerEmbed(plugin, embed) {
+  let embeds = activeOutlinerEmbedsByPlugin.get(plugin);
+  if (!embeds) {
+    embeds = /* @__PURE__ */ new Set();
+    activeOutlinerEmbedsByPlugin.set(plugin, embeds);
+  }
+  embeds.add(embed);
+}
+function unregisterActiveOutlinerEmbed(plugin, embed) {
+  const embeds = activeOutlinerEmbedsByPlugin.get(plugin);
+  if (!embeds)
+    return;
+  embeds.delete(embed);
+  if (embeds.size === 0)
+    activeOutlinerEmbedsByPlugin.delete(plugin);
+}
+var OutlinerEmbedLeafManager = class {
+  constructor(plugin) {
+    this.embedRegistry = /* @__PURE__ */ new WeakMap();
+    this.activeEmbeds = /* @__PURE__ */ new Set();
+    this.plugin = plugin;
+  }
+  getActiveEmbeds() {
+    return Array.from(this.activeEmbeds);
+  }
+  cleanup() {
+    const embeds = Array.from(this.activeEmbeds);
+    for (const embed of embeds) {
+      this.detach(embed);
+    }
+  }
+  async createEmbedLeaf(args) {
+    const leaf = new import_obsidian22.WorkspaceLeaf(this.plugin.app);
+    markLeafAsDetached(leaf);
+    const embed = {
+      containerEl: args.containerEl,
+      file: args.file,
+      sourcePath: args.sourcePath,
+      component: void 0,
+      leaf,
+      view: void 0
+    };
+    const component = new import_obsidian22.MarkdownRenderChild(args.containerEl);
+    component.load();
+    component.register(() => {
+      this.detachLeafFromComponentUnload(embed);
+    });
+    embed.component = component;
+    try {
+      await leaf.setViewState({
+        type: FILE_OUTLINER_VIEW_TYPE,
+        state: { file: args.file.path },
+        active: false
+      });
+    } catch (error) {
+      component.unload();
+      leaf.detach();
+      throw error;
+    }
+    const view = leaf.view;
+    if (!view || typeof view.getViewType !== "function" || view.getViewType() !== FILE_OUTLINER_VIEW_TYPE) {
+      component.unload();
+      leaf.detach();
+      throw new Error("JournalFeed: failed to load FileOutlinerView");
+    }
+    embed.view = view;
+    this.embedRegistry.set(args.containerEl, embed);
+    this.activeEmbeds.add(embed);
+    registerActiveOutlinerEmbed(this.plugin, embed);
+    return embed;
+  }
+  reparent(embeddingContainerEl, viewContainerEl) {
+    embeddingContainerEl.replaceChildren(viewContainerEl);
+  }
+  detachLeafFromComponentUnload(embed) {
+    var _a2;
+    this.embedRegistry.delete(embed.containerEl);
+    this.activeEmbeds.delete(embed);
+    unregisterActiveOutlinerEmbed(this.plugin, embed);
+    try {
+      (_a2 = embed.restore) == null ? void 0 : _a2.call(embed);
+    } catch (e) {
+    }
+    try {
+      embed.leaf.detach();
+    } catch (e) {
+    }
+  }
+  detach(embed) {
+    try {
+      embed.component.unload();
+    } catch (e) {
+    }
+  }
+};
+
 // src/features/file-outliner-view/commands.ts
 var FILE_OUTLINER_COMMAND_IDS = {
   toggleTaskStatus: "file-outliner-toggle-task-status",
-  toggleTaskMarker: "file-outliner-toggle-task-marker"
+  toggleTaskMarker: "file-outliner-toggle-task-marker",
+  moveActiveBlockUp: "file-outliner-move-active-block-up",
+  moveActiveBlockDown: "file-outliner-move-active-block-down"
 };
 function getActiveOutlinerView(plugin) {
   try {
@@ -31113,6 +31530,44 @@ function getActiveOutlinerView(plugin) {
   } catch (e) {
     return null;
   }
+}
+function getFocusedOutlinerView(plugin) {
+  var _a2, _b2, _c2, _d2;
+  const candidates = [];
+  try {
+    const activeView = (_a2 = plugin.app.workspace.activeLeaf) == null ? void 0 : _a2.view;
+    if (activeView)
+      candidates.push(activeView);
+  } catch (e) {
+  }
+  try {
+    const leaves = (_d2 = (_c2 = (_b2 = plugin.app.workspace).getLeavesOfType) == null ? void 0 : _c2.call(_b2, FILE_OUTLINER_VIEW_TYPE)) != null ? _d2 : [];
+    for (const leaf of leaves) {
+      const view = leaf == null ? void 0 : leaf.view;
+      if (view && !candidates.includes(view))
+        candidates.push(view);
+    }
+  } catch (e) {
+  }
+  try {
+    for (const view of getActiveOutlinerEmbedViews(plugin)) {
+      if (view && !candidates.includes(view))
+        candidates.push(view);
+    }
+  } catch (e) {
+  }
+  for (const view of candidates) {
+    if (typeof view.getViewType === "function" && view.getViewType() !== FILE_OUTLINER_VIEW_TYPE)
+      continue;
+    if (typeof view.isActiveBlockEditorFocused !== "function")
+      continue;
+    try {
+      if (view.isActiveBlockEditorFocused())
+        return view;
+    } catch (e) {
+    }
+  }
+  return null;
 }
 function registerFileOutlinerCommands(plugin) {
   const labels = getFileOutlinerCommandLabels();
@@ -31145,6 +31600,33 @@ function registerFileOutlinerCommands(plugin) {
         return true;
       return Boolean(view.toggleActiveTaskMarker());
     }
+  });
+  const registerMoveCommand = (opts) => {
+    plugin.addCommand({
+      id: opts.id,
+      name: opts.name,
+      hotkeys: [{ modifiers: ["Alt"], key: opts.key }],
+      checkCallback: (checking) => {
+        const view = getFocusedOutlinerView(plugin);
+        if (!view || typeof view.moveActiveBlock !== "function")
+          return false;
+        if (checking)
+          return true;
+        return Boolean(view.moveActiveBlock(opts.direction));
+      }
+    });
+  };
+  registerMoveCommand({
+    id: FILE_OUTLINER_COMMAND_IDS.moveActiveBlockUp,
+    name: labels.moveActiveBlockUp,
+    key: "ArrowUp",
+    direction: "up"
+  });
+  registerMoveCommand({
+    id: FILE_OUTLINER_COMMAND_IDS.moveActiveBlockDown,
+    name: labels.moveActiveBlockDown,
+    key: "ArrowDown",
+    direction: "down"
   });
 }
 
@@ -31230,7 +31712,7 @@ function registerFileOutlinerEditorCommandBridge(plugin) {
 }
 
 // src/features/file-outliner-view/blp-view.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 
 // node_modules/.pnpm/js-yaml@4.2.0/node_modules/js-yaml/dist/js-yaml.mjs
 var __create2 = Object.create;
@@ -33988,6 +34470,9 @@ function findManagedRegion(fileContent, codeBlockEndLine) {
 }
 
 // src/features/file-outliner-view/blp-view.ts
+function isLiveDayGroupedEmbedList(config) {
+  return config.group.by === "day(date)" && config.render.type === "embed-list" && !config.render.mode;
+}
 function normalizeTag(tag) {
   const trimmed = tag.trim();
   if (!trimmed)
@@ -34039,7 +34524,7 @@ function resolveSourceFilesOrError(plugin, dv, currentFile, source) {
   var _a2, _b2, _c2, _d2, _e2, _f2;
   const allMarkdownFiles = plugin.app.vault.getFiles().filter((f2) => {
     var _a3;
-    return f2 instanceof import_obsidian22.TFile && ((_a3 = f2.extension) == null ? void 0 : _a3.toLowerCase()) === "md";
+    return f2 instanceof import_obsidian23.TFile && ((_a3 = f2.extension) == null ? void 0 : _a3.toLowerCase()) === "md";
   });
   const enabledFiles = allMarkdownFiles.filter((f2) => isFileOutlinerEnabledFile(plugin, f2));
   const enabledPathSet = new Set(enabledFiles.map((f2) => f2.path));
@@ -34123,7 +34608,7 @@ function resolveSourceFilesOrError(plugin, dv, currentFile, source) {
   const resolvedPaths = [];
   for (const path of uniqueCandidatePaths) {
     const af = plugin.app.vault.getAbstractFileByPath(path);
-    if (af instanceof import_obsidian22.TFile) {
+    if (af instanceof import_obsidian23.TFile) {
       resolvedFiles.push(af);
       resolvedPaths.push(path);
     } else {
@@ -34494,6 +34979,24 @@ function renderEmbedList(groups) {
   }
   return lines.join("\n").trim();
 }
+async function renderTimelineEmbedList(groups, el, ctx, plugin) {
+  const timeline = el.createDiv({ cls: "blp-view-timeline" });
+  await import_obsidian23.MarkdownRenderer.renderMarkdown(renderEmbedList(groups), timeline, ctx.sourcePath, plugin);
+  const renderedNodes = Array.from(timeline.children);
+  let activeItems = null;
+  for (const node of renderedNodes) {
+    if (node.matches("h3")) {
+      const group = timeline.createEl("section", { cls: "blp-view-timeline-group" });
+      const header = group.createDiv({ cls: "blp-view-timeline-group-header" });
+      const items = group.createDiv({ cls: "blp-view-timeline-items" });
+      node.addClass("blp-view-timeline-group-label");
+      header.appendChild(node);
+      activeItems = items;
+      continue;
+    }
+    activeItems == null ? void 0 : activeItems.appendChild(node);
+  }
+}
 function renderTable(dv, groups, config, pageFileByPath, originFilePath) {
   var _a2, _b2, _c2;
   const columns = (_a2 = config.render.columns) != null ? _a2 : [];
@@ -34587,7 +35090,7 @@ async function handleBlpView(plugin, source, el, ctx) {
       return;
     }
     const file = plugin.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian22.TFile)) {
+    if (!(file instanceof import_obsidian23.TFile)) {
       return;
     }
     const config = resolveConfigDefaults(parseConfig(source));
@@ -34763,7 +35266,21 @@ Narrow \`source\` in the code block or increase the limit in settings.`
       }
       return;
     }
-    await import_obsidian22.MarkdownRenderer.renderMarkdown(markdown, el, ctx.sourcePath, plugin);
+    if (isLiveDayGroupedEmbedList(config)) {
+      if (truncated) {
+        const notice = el.createDiv({ cls: "blp-view-timeline-notice" });
+        await import_obsidian23.MarkdownRenderer.renderMarkdown(
+          `> [!warning] blp-view output truncated
+> Showing ${limited.length} of ${totalMatches} items (settings max results = ${maxResults}).`,
+          notice,
+          ctx.sourcePath,
+          plugin
+        );
+      }
+      await renderTimelineEmbedList(groups, el, ctx, plugin);
+    } else {
+      await import_obsidian23.MarkdownRenderer.renderMarkdown(markdown, el, ctx.sourcePath, plugin);
+    }
     if (showDiagnostics) {
       el.createEl("pre", { text: diagnosticsText });
     }
@@ -34801,7 +35318,6 @@ var JOURNAL_FEED_VIEW_TYPE = "blp-journal-feed-view";
 
 // src/features/journal-feed-view/view.ts
 var import_obsidian25 = require("obsidian");
-var import_moment3 = __toESM(require_moment());
 var import_state8 = require("@codemirror/state");
 
 // src/features/journal-feed-view/anchor.ts
@@ -34900,10 +35416,10 @@ function getJournalFeedConfigFromText(text) {
 }
 
 // src/features/journal-feed-view/daily-sources.ts
-var import_obsidian23 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 var import_moment2 = __toESM(require_moment());
 function normalizeFolderPath(input) {
-  return (0, import_obsidian23.normalizePath)(String(input != null ? input : "").trim()).replace(/^\/+/, "").replace(/\/+$/, "");
+  return (0, import_obsidian24.normalizePath)(String(input != null ? input : "").trim()).replace(/^\/+/, "").replace(/\/+$/, "");
 }
 function scanDailyNotesByFolderAndFormat(app, opts) {
   var _a2, _b2, _c2, _d2, _e2, _f2, _g;
@@ -34920,11 +35436,11 @@ function scanDailyNotesByFolderAndFormat(app, opts) {
     return [];
   }
   for (const f2 of files) {
-    if (!(f2 instanceof import_obsidian23.TFile))
+    if (!(f2 instanceof import_obsidian24.TFile))
       continue;
     if (((_e2 = f2.extension) == null ? void 0 : _e2.toLowerCase()) !== "md")
       continue;
-    const filePath = (0, import_obsidian23.normalizePath)(String((_f2 = f2.path) != null ? _f2 : ""));
+    const filePath = (0, import_obsidian24.normalizePath)(String((_f2 = f2.path) != null ? _f2 : ""));
     if (normalizedFolder && !filePath.startsWith(normalizedFolder + "/"))
       continue;
     const rel = normalizedFolder ? filePath.slice(normalizedFolder.length + 1) : filePath;
@@ -34978,7 +35494,7 @@ function resolveDailySources(app) {
   try {
     (_d2 = inst.iterateDailyNotes) == null ? void 0 : _d2.call(inst, (file, ts) => {
       var _a3;
-      if (!(file instanceof import_obsidian23.TFile))
+      if (!(file instanceof import_obsidian24.TFile))
         return;
       if (((_a3 = file.extension) == null ? void 0 : _a3.toLowerCase()) !== "md")
         return;
@@ -34991,9 +35507,9 @@ function resolveDailySources(app) {
   }
   const scanned = scanDailyNotesByFolderAndFormat(app, { folderPath, format });
   if (scanned.length > 0) {
-    const existing = new Set(sources.map((s2) => (0, import_obsidian23.normalizePath)(s2.file.path)));
+    const existing = new Set(sources.map((s2) => (0, import_obsidian24.normalizePath)(s2.file.path)));
     for (const s2 of scanned) {
-      const p = (0, import_obsidian23.normalizePath)(s2.file.path);
+      const p = (0, import_obsidian24.normalizePath)(s2.file.path);
       if (existing.has(p))
         continue;
       existing.add(p);
@@ -35017,104 +35533,27 @@ function chooseStartIndex(sources, opts) {
   return 0;
 }
 
-// src/features/journal-feed-view/OutlinerEmbedLeafManager.ts
-var import_obsidian24 = require("obsidian");
-var OutlinerEmbedLeafManager = class {
-  constructor(plugin) {
-    this.embedRegistry = /* @__PURE__ */ new WeakMap();
-    this.activeEmbeds = /* @__PURE__ */ new Set();
-    this.plugin = plugin;
-  }
-  getActiveEmbeds() {
-    return Array.from(this.activeEmbeds);
-  }
-  cleanup() {
-    const embeds = Array.from(this.activeEmbeds);
-    for (const embed of embeds) {
-      this.detach(embed);
-    }
-  }
-  async createEmbedLeaf(args) {
-    const leaf = new import_obsidian24.WorkspaceLeaf(this.plugin.app);
-    markLeafAsDetached(leaf);
-    const embed = {
-      containerEl: args.containerEl,
-      file: args.file,
-      sourcePath: args.sourcePath,
-      component: void 0,
-      leaf,
-      view: void 0
-    };
-    const component = new import_obsidian24.MarkdownRenderChild(args.containerEl);
-    component.load();
-    component.register(() => {
-      this.detachLeafFromComponentUnload(embed);
-    });
-    embed.component = component;
-    try {
-      await leaf.setViewState({
-        type: FILE_OUTLINER_VIEW_TYPE,
-        state: { file: args.file.path },
-        active: false
-      });
-    } catch (error) {
-      component.unload();
-      leaf.detach();
-      throw error;
-    }
-    const view = leaf.view;
-    if (!view || typeof view.getViewType !== "function" || view.getViewType() !== FILE_OUTLINER_VIEW_TYPE) {
-      component.unload();
-      leaf.detach();
-      throw new Error("JournalFeed: failed to load FileOutlinerView");
-    }
-    embed.view = view;
-    this.embedRegistry.set(args.containerEl, embed);
-    this.activeEmbeds.add(embed);
-    return embed;
-  }
-  reparent(embeddingContainerEl, viewContainerEl) {
-    embeddingContainerEl.replaceChildren(viewContainerEl);
-  }
-  detachLeafFromComponentUnload(embed) {
-    var _a2;
-    this.embedRegistry.delete(embed.containerEl);
-    this.activeEmbeds.delete(embed);
-    try {
-      (_a2 = embed.restore) == null ? void 0 : _a2.call(embed);
-    } catch (e) {
-    }
-    try {
-      embed.leaf.detach();
-    } catch (e) {
-    }
-  }
-  detach(embed) {
-    try {
-      embed.component.unload();
-    } catch (e) {
-    }
-  }
-};
+// src/features/journal-feed-view/journal-day-label.ts
+var import_moment3 = __toESM(require_moment());
+function getJournalDayLabel(ts, format, nowTs = Date.now()) {
+  const day = (0, import_moment3.default)(ts).startOf("day");
+  const today = (0, import_moment3.default)(nowTs).startOf("day");
+  const dayDifference = day.diff(today, "days");
+  return {
+    absolute: day.isValid() ? day.format(format) : String(ts),
+    relative: dayDifference === 0 ? "Today" : dayDifference === -1 ? "Yesterday" : null
+  };
+}
 
 // src/features/journal-feed-view/view.ts
-function formatDay(ts, format) {
-  try {
-    return (0, import_moment3.default)(ts).format(format);
-  } catch (e) {
-    return String(ts);
-  }
-}
 var JournalFeedView = class extends import_obsidian25.TextFileView {
   constructor(leaf, plugin) {
     super(leaf);
     this.config = { initialDays: 3, pageSize: 7 };
-    this.folderPath = "/";
     this.dateFormat = "YYYY-MM-DD";
     this.sources = [];
     this.nextIndex = 0;
     this.rootEl = null;
-    this.feedHeaderEl = null;
     this.feedEl = null;
     this.loadMoreEl = null;
     this.sections = [];
@@ -35127,6 +35566,10 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     this.embeds = new EmbedLeafManager(plugin);
     this.outlinerEmbeds = new OutlinerEmbedLeafManager(plugin);
     this.contentEl.addClass("blp-journal-feed-view");
+    this.registerEvent(this.app.vault.on("config-changed", (key) => {
+      if (key === "readableLineLength")
+        this.syncReadableLineLength();
+    }));
     this.installFocusBridge();
   }
   getViewType() {
@@ -35150,13 +35593,22 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     this.detachAllSections();
     this.contentEl.empty();
     this.rootEl = null;
-    this.feedHeaderEl = null;
     this.feedEl = null;
     this.loadMoreEl = null;
+  }
+  async onOpen() {
+    await super.onOpen();
+    this.addAction("refresh-cw", "Refresh Journal Feed", () => this.scheduleRebuild(0));
+    this.addAction("file-text", "Open Journal Feed source", () => this.openAnchorInMarkdown());
   }
   onunload() {
     super.onunload();
     this.detachAllSections();
+  }
+  syncReadableLineLength() {
+    if (!this.rootEl)
+      return;
+    this.rootEl.dataset.blpReadableLineLength = this.app.vault.getConfig("readableLineLength") === true ? "true" : "false";
   }
   scheduleRebuild(delayMs = 30) {
     if (this.rebuildTimer !== null)
@@ -35169,7 +35621,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
   renderShell() {
     this.contentEl.empty();
     this.rootEl = this.contentEl.createDiv("blp-journal-feed-root");
-    this.feedHeaderEl = this.rootEl.createDiv("blp-journal-feed-header");
+    this.syncReadableLineLength();
     this.feedEl = this.rootEl.createDiv("blp-journal-feed-scroll");
     this.loadMoreEl = this.feedEl.createDiv("blp-journal-feed-load-more");
     this.loadMoreEl.setText("Load more\u2026");
@@ -35183,7 +35635,6 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
       this.renderError(resolved.reason);
       return;
     }
-    this.folderPath = resolved.folderPath;
     this.dateFormat = resolved.format;
     this.sources = resolved.sources;
     if (this.sources.length === 0) {
@@ -35192,23 +35643,8 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     }
     const startIndex = chooseStartIndex(this.sources);
     this.nextIndex = startIndex;
-    this.renderHeader();
     this.installObservers();
     this.appendMore({ count: this.config.initialDays });
-  }
-  renderHeader() {
-    if (!this.feedHeaderEl)
-      return;
-    this.feedHeaderEl.empty();
-    const titleRow = this.feedHeaderEl.createDiv("blp-journal-feed-title-row");
-    titleRow.createDiv({ cls: "blp-journal-feed-title", text: "Journal Feed" });
-    const meta = this.feedHeaderEl.createDiv("blp-journal-feed-meta");
-    meta.setText(`Daily Notes: folder=${this.folderPath || "/"} format=${this.dateFormat}`);
-    const actions = this.feedHeaderEl.createDiv("blp-journal-feed-actions");
-    const refreshBtn = actions.createEl("button", { text: "Refresh" });
-    refreshBtn.addEventListener("click", () => this.scheduleRebuild(0));
-    const openAnchorBtn = actions.createEl("button", { text: "Open Anchor" });
-    openAnchorBtn.addEventListener("click", () => this.openAnchorInMarkdown());
   }
   renderError(message) {
     if (!this.feedEl)
@@ -35278,7 +35714,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     const start = this.nextIndex;
     const end = Math.min(this.sources.length, start + opts.count);
     if (start >= end) {
-      (_a2 = this.loadMoreEl) == null ? void 0 : _a2.setText("No more days.");
+      (_a2 = this.loadMoreEl) == null ? void 0 : _a2.empty();
       return;
     }
     for (let i = start; i < end; i++) {
@@ -35299,10 +35735,15 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     const wantsOutliner = this.plugin.settings.fileOutlinerViewEnabled !== false && isFileOutlinerEnabledFile(this.plugin, src.file);
     const renderMode = wantsOutliner ? "outliner" : "markdown";
     const sectionEl = this.feedEl.createDiv("blp-journal-feed-day");
+    sectionEl.dataset.blpJournalRenderMode = renderMode;
     const headerEl = sectionEl.createDiv("blp-journal-feed-day-header");
-    const dateText = formatDay(src.ts, this.dateFormat);
-    headerEl.createDiv({ cls: "blp-journal-feed-day-title", text: dateText });
-    const openBtn = headerEl.createEl("button", { text: "Open" });
+    const dayLabel = getJournalDayLabel(src.ts, this.dateFormat);
+    const headingEl = headerEl.createDiv("blp-journal-feed-day-heading");
+    headingEl.createDiv({ cls: "blp-journal-feed-day-title", text: dayLabel.absolute });
+    if (dayLabel.relative) {
+      headingEl.createSpan({ cls: "blp-journal-feed-day-relative", text: dayLabel.relative });
+    }
+    const openBtn = headerEl.createEl("button", { cls: "blp-journal-feed-day-open", text: "Open" });
     openBtn.addEventListener("click", () => {
       try {
         void this.app.workspace.getLeaf(true).openFile(src.file);
@@ -35327,7 +35768,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
       embed: null,
       mountPromise: null,
       unloadTimer: null,
-      lastHeight: 160
+      lastHeight: 0
     };
     this.sectionByHost.set(editorHostEl, section);
     (_a2 = this.editorObserver) == null ? void 0 : _a2.observe(editorHostEl);
@@ -35376,7 +35817,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
       return;
     const version = this.lifecycleVersion;
     try {
-      section.editorHostEl.style.minHeight = `${Math.max(section.lastHeight, 160)}px`;
+      this.applyRetainedEditorHeight(section);
     } catch (e) {
     }
     section.editorHostEl.empty();
@@ -35449,6 +35890,9 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
       this.scheduleSectionUnload(section);
     }
   }
+  applyRetainedEditorHeight(section) {
+    section.editorHostEl.style.minHeight = section.lastHeight > 0 ? `${section.lastHeight}px` : "";
+  }
   ensureJournalFeedEditorExtensions(embed) {
     var _a2, _b2;
     const cm = (_b2 = (_a2 = embed == null ? void 0 : embed.view) == null ? void 0 : _a2.editor) == null ? void 0 : _b2.cm;
@@ -35507,7 +35951,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
       const h = section.editorHostEl.getBoundingClientRect().height;
       if (Number.isFinite(h) && h > 0)
         section.lastHeight = Math.round(h);
-      section.editorHostEl.style.minHeight = `${Math.max(section.lastHeight, 160)}px`;
+      this.applyRetainedEditorHeight(section);
     } catch (e) {
     }
     try {

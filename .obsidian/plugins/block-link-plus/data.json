@@ -24,6 +24,7 @@
   "fileOutlinerChildrenOnSplit": "keep",
   "fileOutlinerPasteMultiline": "split",
   "fileOutlinerBackspaceWithChildren": "merge",
+  "fileOutlinerMoveMode": "same-level",
   "fileOutlinerEditorContextMenuEnabled": true,
   "fileOutlinerEditorContextMenuAllowedPlugins": [],
   "fileOutlinerEditorCommandBridgeEnabled": true,
@@ -38,5 +39,5 @@
   "inlineEditFile": false,
   "inlineEditHeading": true,
   "inlineEditBlock": true,
-  "lastSeenVersion": "2.0.16"
+  "lastSeenVersion": "2.0.17"
 }
