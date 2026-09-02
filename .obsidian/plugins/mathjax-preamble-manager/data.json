@@ -1,0 +1,15 @@
+{
+  "preambles": {
+    "preambles": [
+      {
+        "path": "preambles/physics.md"
+      }
+    ],
+    "folderPreambles": [
+      {
+        "folderPath": "/",
+        "preamblePath": "preambles/physics.md"
+      }
+    ]
+  }
+}

@@ -405,6 +405,18 @@ export default [
         replacement: (match) => (match[1] === "c" ? "\\boldsymbol{$0}$1" : "\\overrightarrow{$0}$1"),
         options: "rmA"
     },
+	{
+		trigger: /\*(proj|comp)/,
+		replacement: (match) => `\\operatorname{${match[1]}}`,
+		options: "m",
+		priority: 1,
+		description: "proj/comp 算符（无参数，* 前缀）"
+	}, {
+		trigger: /(proj|comp)/,
+		replacement: (match) => `\\operatorname{${match[1]}}_{$0}$1`,
+		options: "m",
+		description: "proj/comp 投影公式（带占位符）"
+	},
 
     // Domain, Image, Range
     {
