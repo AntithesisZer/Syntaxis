@@ -55,6 +55,8 @@ const TALL_MACROS = [
     "binom", "dbinom", "tbinom",
     // 根号
     "sqrt",
+    // 其他运算符
+    "lim", "limsup", "liminf", "sup", "inf", "max", "min", "det", "Pr", "gcd",
 ];
 
 const TALL_ENVIRONMENTS = [
