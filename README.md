@@ -40,6 +40,6 @@
 笔记中的图像通过tikz完成，部分图像被认为与笔记内容高度相关，但由于过度复杂、被认为没有必要或渲染出的图像质量不佳，因此不会出现在笔记中。
 
 笔记的编辑过程中大量使用了[Latex Suite](https://github.com/artisticat1/obsidian-latex-suite)插件辅助编辑。插件中默认的snippets已被修改，仅符合作者编辑习惯，比如现在支持了所有的希腊字母，其中包括所有变体，对大写斜体进行了补全。
-如需自己编辑，请自行修改根目录下的syntaxis_snippets.js和syntaxis_snippets_variables.js，或在obsidian的插件设置界面修改。
+如需自己编辑，请自行修改snippets目录下的snippets.js和variables.js，或在obsidian的插件设置界面修改。
 
 从Calculus第十二章开始，使用的符号与之前有了较大的区别，原因是从第十二章开始引入了physics宏包，并且开始使用physics宏包中的内容，比如原本使用\mathrm{d}表示微分算子，现在变成了\dd。原本的内容较多，暂时没有用新符号替换旧符号的计划，因此长期会有截然不同的符号表示存在。
