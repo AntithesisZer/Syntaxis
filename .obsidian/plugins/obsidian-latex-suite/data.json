@@ -11,8 +11,8 @@
   "autoDelete$": true,
   "loadSnippetsFromFile": true,
   "loadSnippetVariablesFromFile": true,
-  "snippetsFileLocation": "syntaxis_snippets.js",
-  "snippetVariablesFileLocation": "syntaxis_snippets_variables.js",
+  "snippetsFileLocation": "snippets/snippets.js",
+  "snippetVariablesFileLocation": "snippets/variables.js",
   "concealEnabled": false,
   "concealRevealTimeout": 0,
   "colorPairedBracketsEnabled": true,
@@ -45,5 +45,11 @@
   "vimMatrixEnter": "o",
   "snippetRecursion": 0,
   "snippetIMEVersion": false,
-  "highlightDollarEnabled": true
+  "highlightDollarEnabled": true,
+  "excalidrawSupportEnabled": true,
+  "logLevel": "off",
+  "autofractionTrigger": "/",
+  "matrixShortcutsCellTrigger": "Tab",
+  "matrixShortcutsNewlineTrigger": "Enter",
+  "matrixShortcutsExitTrigger": "Shift-Enter"
 }

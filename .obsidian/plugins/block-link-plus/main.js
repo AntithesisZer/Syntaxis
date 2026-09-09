@@ -11588,7 +11588,7 @@ __export(main_exports, {
   default: () => BlockLinkPlus
 });
 module.exports = __toCommonJS(main_exports);
-var import_obsidian27 = require("obsidian");
+var import_obsidian28 = require("obsidian");
 
 // src/types/index.ts
 var DEFAULT_SETTINGS = {
@@ -11703,17 +11703,23 @@ var syncLineRangeForTransaction = (tr, targetRange, boundaryRange) => {
     boundaryRange
   );
   const safeFromBefore = Math.max(0, posRange.from - 1);
+  const clampToNewDocument = (range) => {
+    const maxLine = Math.max(1, tr.newDoc.lines);
+    const start = Math.min(Math.max(1, range[0]), maxLine);
+    const end = Math.min(Math.max(1, range[1]), maxLine);
+    return start <= end ? [start, end] : [end, start];
+  };
   if (tr.changes.touchesRange(0, safeFromBefore)) {
-    return [
+    return clampToNewDocument([
       targetRange[0] + numberNewLines,
       targetRange[1] + numberNewLines
-    ];
+    ]);
   }
   if (tr.changes.touchesRange(safeFromBefore, posRange.to)) {
-    return [
+    return clampToNewDocument([
       targetRange[0],
       targetRange[1] + numberNewLines
-    ];
+    ]);
   }
   return void 0;
 };
@@ -12612,6 +12618,7 @@ var _EmbedLeafManager = class {
   constructor(plugin) {
     this.embedRegistry = /* @__PURE__ */ new WeakMap();
     this.activeEmbeds = /* @__PURE__ */ new Set();
+    this.nextEmbedId = 0;
     this.plugin = plugin;
   }
   getActiveEmbeds() {
@@ -12666,10 +12673,14 @@ var _EmbedLeafManager = class {
     const leaf = new import_obsidian6.WorkspaceLeaf(this.plugin.app);
     markLeafAsDetached(leaf);
     const embed = {
+      id: `inline-embed-${++this.nextEmbedId}`,
       containerEl: args.containerEl,
       file: args.file,
       subpath: args.subpath,
+      kind: args.kind,
+      readOnly: args.readOnly,
       sourcePath: args.sourcePath,
+      hostView: args.hostView,
       component: void 0,
       leaf,
       view: void 0
@@ -12751,6 +12762,935 @@ var FocusTracker = class {
   }
 };
 
+// src/features/inline-edit-engine/InlineEditSearchCoordinator.ts
+var OUTLINER_SYSTEM_LINE = /\[blp_sys::\s*1\]/;
+function locateManagedEmbedSourceRanges(hostText, anchors) {
+  const tokens = [];
+  const embedToken = /!\[\[([^\]\n]+)\]\]/g;
+  for (let match2 = embedToken.exec(hostText); match2; match2 = embedToken.exec(hostText)) {
+    tokens.push({
+      from: match2.index,
+      to: match2.index + match2[0].length,
+      source: match2[1].split("|")[0].trim()
+    });
+  }
+  const claimed = /* @__PURE__ */ new Set();
+  const ranges = [];
+  for (const anchor of anchors) {
+    let bestIndex = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < tokens.length; index++) {
+      if (claimed.has(index))
+        continue;
+      const token2 = tokens[index];
+      if (token2.source !== anchor.source.trim())
+        continue;
+      if (anchor.hostOffset < token2.from - 1 || anchor.hostOffset > token2.to + 1)
+        continue;
+      const distance = Math.min(
+        Math.abs(anchor.hostOffset - token2.from),
+        Math.abs(anchor.hostOffset - token2.to)
+      );
+      if (distance < bestDistance) {
+        bestIndex = index;
+        bestDistance = distance;
+      }
+    }
+    if (bestIndex === -1)
+      continue;
+    claimed.add(bestIndex);
+    const token = tokens[bestIndex];
+    ranges.push([token.from, token.to]);
+  }
+  return ranges.sort((left, right) => left[0] - right[0]);
+}
+function normalizeQuery(query) {
+  if (typeof query === "string")
+    return { search: query };
+  if (query instanceof RegExp) {
+    return {
+      search: query.source,
+      caseSensitive: !query.ignoreCase,
+      regexp: true,
+      regexpFlags: query.flags
+    };
+  }
+  return query;
+}
+function getVisibleRange(participant) {
+  const lastLine = participant.doc.lines;
+  const requested = participant.visibleRange;
+  if (!requested)
+    return [1, lastLine];
+  const start = Math.min(Math.max(1, requested[0]), lastLine);
+  const end = Math.min(Math.max(1, requested[1]), lastLine);
+  return start <= end ? [start, end] : [end, start];
+}
+function isWholeWordBoundary(text, from, to) {
+  const isWord = (character) => character !== void 0 && /[A-Za-z0-9_]/.test(character);
+  return !isWord(text[from - 1]) && !isWord(text[to]);
+}
+function collectLiteralMatches(text, query) {
+  const needle = query.search;
+  const foldedNeedle = query.caseSensitive ? needle : needle.toLowerCase();
+  const matches = [];
+  for (let matchFrom = 0; matchFrom <= text.length - needle.length; ) {
+    const candidate = text.slice(matchFrom, matchFrom + needle.length);
+    const equal = query.caseSensitive ? candidate === needle : candidate.toLowerCase() === foldedNeedle;
+    if (equal) {
+      const matchTo = matchFrom + needle.length;
+      if (!query.wholeWord || isWholeWordBoundary(text, matchFrom, matchTo)) {
+        matches.push({ from: matchFrom, to: matchTo });
+      }
+      matchFrom = matchTo;
+      continue;
+    }
+    matchFrom += 1;
+  }
+  return matches;
+}
+function collectRegexpMatches(text, query) {
+  var _a2;
+  let expression;
+  try {
+    let flags = ((_a2 = query.regexpFlags) != null ? _a2 : "").replace(/[gy]/g, "");
+    if (!query.caseSensitive && !flags.includes("i"))
+      flags += "i";
+    if (!flags.includes("g"))
+      flags += "g";
+    expression = new RegExp(query.search, flags);
+  } catch (e) {
+    return [];
+  }
+  const matches = [];
+  let searchFrom = 0;
+  while (searchFrom <= text.length) {
+    expression.lastIndex = searchFrom;
+    const match2 = expression.exec(text);
+    if (!match2 || match2.index === void 0)
+      break;
+    const from = match2.index;
+    const to = from + match2[0].length;
+    if (to > from && (!query.wholeWord || isWholeWordBoundary(text, from, to))) {
+      matches.push({ from, to });
+    }
+    searchFrom = to > from ? to : from + 1;
+  }
+  return matches;
+}
+function isVisibleMatch(participant, range, from, to) {
+  const firstLine = participant.doc.lineAt(from).number;
+  const lastLine = participant.doc.lineAt(Math.max(from, to - 1)).number;
+  for (let lineNumber = firstLine; lineNumber <= lastLine; lineNumber++) {
+    if (lineNumber < range[0] || lineNumber > range[1] || participant.id !== "host" && OUTLINER_SYSTEM_LINE.test(participant.doc.line(lineNumber).text)) {
+      return false;
+    }
+  }
+  return true;
+}
+function isIgnoredMatch(participant, from, to) {
+  var _a2, _b2;
+  return (_b2 = (_a2 = participant.ignoredRanges) == null ? void 0 : _a2.some(([rangeFrom, rangeTo]) => from < rangeTo && to > rangeFrom)) != null ? _b2 : false;
+}
+function collectInlineEditSearchMatches(queryInput, participants) {
+  const query = normalizeQuery(queryInput);
+  if (!query.search)
+    return [];
+  const matches = [];
+  for (const participant of participants) {
+    const text = participant.doc.toString();
+    const ranges = query.regexp ? collectRegexpMatches(text, query) : collectLiteralMatches(text, query);
+    const visibleRange = getVisibleRange(participant);
+    for (const match2 of ranges) {
+      if (isIgnoredMatch(participant, match2.from, match2.to))
+        continue;
+      if (!isVisibleMatch(participant, visibleRange, match2.from, match2.to))
+        continue;
+      matches.push({
+        participantId: participant.id,
+        from: match2.from,
+        to: match2.to,
+        line: participant.doc.lineAt(match2.from).number
+      });
+    }
+  }
+  const hasRenderedOrder = participants.some(
+    (participant) => participant.id !== "host" && Number.isFinite(participant.renderedOrder)
+  );
+  if (!hasRenderedOrder)
+    return matches;
+  const participantById = new Map(participants.map((participant) => [participant.id, participant]));
+  const originalOrder = new Map(matches.map((match2, index) => [match2, index]));
+  const renderedKey = (match2) => {
+    const participant = participantById.get(match2.participantId);
+    if (match2.participantId === "host")
+      return [match2.from, 0, match2.from];
+    const anchor = Number.isFinite(participant == null ? void 0 : participant.renderedOrder) ? participant == null ? void 0 : participant.renderedOrder : Number.POSITIVE_INFINITY;
+    return [anchor, 1, match2.from];
+  };
+  return matches.sort((left, right) => {
+    var _a2, _b2;
+    const leftKey = renderedKey(left);
+    const rightKey = renderedKey(right);
+    for (let i = 0; i < leftKey.length; i++) {
+      if (leftKey[i] !== rightKey[i])
+        return leftKey[i] - rightKey[i];
+    }
+    return ((_a2 = originalOrder.get(left)) != null ? _a2 : 0) - ((_b2 = originalOrder.get(right)) != null ? _b2 : 0);
+  });
+}
+
+// src/features/inline-edit-engine/InlineEditSearchAdapter.ts
+var SEARCH_RANGE_METADATA = "__blpInlineEditSearchMatch";
+var OUTLINER_SYSTEM_LINE2 = /\[blp_sys::\s*1\]/;
+function getMetadata(value) {
+  if (!value || typeof value !== "object")
+    return null;
+  const metadata = value[SEARCH_RANGE_METADATA];
+  if (!metadata || typeof metadata !== "object")
+    return null;
+  if (typeof metadata.participantId !== "string" || typeof metadata.from !== "number" || typeof metadata.to !== "number" || typeof metadata.line !== "number") {
+    return null;
+  }
+  return metadata;
+}
+function setMetadata(range, metadata) {
+  try {
+    Object.defineProperty(range, SEARCH_RANGE_METADATA, {
+      configurable: true,
+      enumerable: false,
+      value: metadata,
+      writable: false
+    });
+  } catch (e) {
+  }
+}
+function isSameMatch(a, b) {
+  return Boolean(
+    a && a.participantId === b.participantId && a.from === b.from && a.to === b.to && a.line === b.line
+  );
+}
+function isCurrentVisibleMatch(participant, match2, query) {
+  if (query === null)
+    return false;
+  try {
+    const firstLine = participant.doc.lineAt(match2.from).number;
+    const lastLine = participant.doc.lineAt(Math.max(match2.from, match2.to - 1)).number;
+    if (firstLine !== match2.line)
+      return false;
+    if (participant.visibleRange) {
+      const start = Math.min(participant.visibleRange[0], participant.visibleRange[1]);
+      const end = Math.max(participant.visibleRange[0], participant.visibleRange[1]);
+      if (firstLine < start || lastLine > end)
+        return false;
+    }
+    if (participant.id !== "host") {
+      for (let lineNumber = firstLine; lineNumber <= lastLine; lineNumber++) {
+        if (OUTLINER_SYSTEM_LINE2.test(participant.doc.line(lineNumber).text))
+          return false;
+      }
+    }
+    return collectInlineEditSearchMatches(query, [participant]).some(
+      (candidate) => isSameMatch(candidate, match2)
+    );
+  } catch (e) {
+    return false;
+  }
+}
+function normalizeNativeSearchQuery(query, args) {
+  if (typeof query !== "string")
+    return query;
+  return {
+    search: query,
+    caseSensitive: args[0] === true,
+    wholeWord: args[1] === true,
+    regexp: args[2] === true
+  };
+}
+function createSearchCursorWrapper(bridge, old) {
+  return function(query, ...args) {
+    const nativeCursor = old.call(this, query, ...args);
+    const aggregateQuery = normalizeNativeSearchQuery(query, args);
+    if (typeof aggregateQuery !== "string" && !(aggregateQuery instanceof RegExp) && typeof aggregateQuery !== "object" || !bridge.canAggregate()) {
+      bridge.clearActiveQuery();
+      return nativeCursor;
+    }
+    bridge.setActiveQuery(aggregateQuery);
+    return new AggregatedInlineSearchCursor(bridge, aggregateQuery, nativeCursor, this);
+  };
+}
+function createAddHighlightsWrapper(bridge, old) {
+  return function(ranges, className, ...args) {
+    return bridge.handleAddHighlights(this, old, ranges, className, args);
+  };
+}
+function createRemoveHighlightsWrapper(bridge, old) {
+  return function(className) {
+    bridge.clearEmbedHighlights(className);
+    return old.call(this, className);
+  };
+}
+function createScrollIntoViewWrapper(bridge, old) {
+  return function(range, center) {
+    const metadata = getMetadata(range);
+    if (range === null || range === void 0)
+      return;
+    if (metadata && metadata.participantId !== "host") {
+      if (!bridge.isLiveAggregateMatch(metadata))
+        return;
+      if (bridge.navigateMatch(metadata))
+        return;
+      return;
+    }
+    return old.call(this, range, center);
+  };
+}
+function createSetSelectionWrapper(bridge, old) {
+  return function(from, to) {
+    if (bridge.isHostSelectionSuppressed())
+      return;
+    return old.call(this, from, to);
+  };
+}
+function createSearchHideWrapper(bridge, old) {
+  return function(...args) {
+    var _a2, _b2;
+    const metadata = getMetadata((_b2 = (_a2 = this.cursor) == null ? void 0 : _a2.current) == null ? void 0 : _b2.call(_a2));
+    const isEmbedMatch = Boolean(metadata && metadata.participantId !== "host");
+    if (metadata && isEmbedMatch) {
+      bridge.isLiveAggregateMatch(metadata);
+    }
+    bridge.setHostSelectionSuppressed(
+      isEmbedMatch
+    );
+    try {
+      return old.apply(this, args);
+    } finally {
+      bridge.setHostSelectionSuppressed(false);
+      bridge.dispose();
+    }
+  };
+}
+var InlineEditSearchBridge = class {
+  constructor(options) {
+    this.editorUninstaller = null;
+    this.searchUninstaller = null;
+    this.searchEditorUninstaller = null;
+    this.searchContainerObserver = null;
+    this.attachedSearch = null;
+    this.embedHighlights = [];
+    this.participantDispatchUninstallers = /* @__PURE__ */ new Map();
+    this.participantDocumentIds = /* @__PURE__ */ new WeakMap();
+    this.participantEditorIds = /* @__PURE__ */ new WeakMap();
+    this.nextParticipantDocumentId = 1;
+    this.nextParticipantEditorId = 1;
+    this.suppressHostSelection = false;
+    this.activeQuery = null;
+    this.activeParticipantFingerprint = null;
+    this.currentParticipantId = null;
+    this.disposed = false;
+    this.options = options;
+  }
+  install() {
+    var _a2;
+    if (this.disposed || this.editorUninstaller)
+      return Boolean(this.editorUninstaller);
+    const editor = this.options.editor;
+    if (typeof editor.searchCursor !== "function" || typeof editor.addHighlights !== "function" || typeof editor.removeHighlights !== "function" || typeof editor.scrollIntoView !== "function" || typeof editor.setSelection !== "function") {
+      return false;
+    }
+    try {
+      this.editorUninstaller = around(editor, {
+        addHighlights: (old) => createAddHighlightsWrapper(this, old),
+        removeHighlights: (old) => createRemoveHighlightsWrapper(this, old),
+        scrollIntoView: (old) => createScrollIntoViewWrapper(this, old),
+        setSelection: (old) => createSetSelectionWrapper(this, old)
+      });
+      return true;
+    } catch (e) {
+      try {
+        (_a2 = this.editorUninstaller) == null ? void 0 : _a2.call(this);
+      } catch (e2) {
+      }
+      this.editorUninstaller = null;
+      return false;
+    }
+  }
+  attachSearch(search) {
+    var _a2, _b2;
+    if (this.disposed || !this.editorUninstaller || !search || typeof search.hide !== "function")
+      return false;
+    if (this.attachedSearch === search)
+      return true;
+    if (search.editor !== this.options.editor)
+      return false;
+    try {
+      (_a2 = this.searchUninstaller) == null ? void 0 : _a2.call(this);
+    } catch (e) {
+    }
+    this.searchUninstaller = null;
+    this.restoreSearchEditor();
+    this.disconnectSearchContainerObserver();
+    try {
+      const editor = this.options.editor;
+      const searchCursor = (query, ...args) => this.createSearchCursor(query, ...args);
+      const boundMethods = /* @__PURE__ */ new Map();
+      const panelEditor = new Proxy(editor, {
+        get(target, key) {
+          if (key === "searchCursor")
+            return searchCursor;
+          const value = Reflect.get(target, key, target);
+          if (typeof value !== "function")
+            return value;
+          let entry = boundMethods.get(key);
+          if (!entry || entry.original !== value) {
+            entry = { original: value, bound: value.bind(target) };
+            boundMethods.set(key, entry);
+          }
+          return entry.bound;
+        },
+        set: (target, key, value) => Reflect.set(target, key, value, target)
+      });
+      this.searchEditorUninstaller = () => {
+        if (search.editor === panelEditor)
+          search.editor = editor;
+      };
+      search.editor = panelEditor;
+      if (search.editor !== panelEditor)
+        throw new Error("Search editor is not replaceable");
+      this.searchUninstaller = around(search, {
+        hide: (old) => createSearchHideWrapper(this, old)
+      });
+      this.attachedSearch = search;
+      this.observeSearchContainer(search);
+      return true;
+    } catch (e) {
+      try {
+        (_b2 = this.searchUninstaller) == null ? void 0 : _b2.call(this);
+      } catch (e2) {
+      }
+      this.searchUninstaller = null;
+      this.restoreSearchEditor();
+      this.disconnectSearchContainerObserver();
+      this.attachedSearch = null;
+      return false;
+    }
+  }
+  dispose() {
+    var _a2, _b2, _c2, _d2, _e2;
+    if (this.disposed)
+      return;
+    this.disposed = true;
+    this.suppressHostSelection = false;
+    this.currentParticipantId = null;
+    this.clearActiveQuery();
+    this.clearEmbedHighlights();
+    for (const uninstall of this.participantDispatchUninstallers.values()) {
+      try {
+        uninstall();
+      } catch (e) {
+      }
+    }
+    this.participantDispatchUninstallers.clear();
+    try {
+      (_a2 = this.searchUninstaller) == null ? void 0 : _a2.call(this);
+    } catch (e) {
+    }
+    this.searchUninstaller = null;
+    this.restoreSearchEditor();
+    (_b2 = this.searchContainerObserver) == null ? void 0 : _b2.disconnect();
+    this.searchContainerObserver = null;
+    this.attachedSearch = null;
+    try {
+      (_c2 = this.editorUninstaller) == null ? void 0 : _c2.call(this);
+    } catch (e) {
+    }
+    this.editorUninstaller = null;
+    try {
+      (_e2 = (_d2 = this.options).onDispose) == null ? void 0 : _e2.call(_d2);
+    } catch (e) {
+    }
+  }
+  restoreSearchEditor() {
+    var _a2;
+    try {
+      (_a2 = this.searchEditorUninstaller) == null ? void 0 : _a2.call(this);
+    } catch (e) {
+    } finally {
+      this.searchEditorUninstaller = null;
+    }
+  }
+  /** Create the cursor owned by the attached Find panel, never by host callers. */
+  createSearchCursor(query, ...args) {
+    const editor = this.options.editor;
+    return createSearchCursorWrapper(this, editor.searchCursor).call(editor, query, ...args);
+  }
+  canAggregate() {
+    if (this.disposed)
+      return false;
+    try {
+      return this.getParticipants().some((participant) => participant.id !== "host");
+    } catch (e) {
+      return false;
+    }
+  }
+  isLiveAggregateMatch(match2) {
+    if (this.disposed)
+      return false;
+    const participant = this.getParticipants().find((candidate) => candidate.id === match2.participantId);
+    if (!participant || match2.from < 0 || match2.to <= match2.from || match2.to > participant.doc.length)
+      return false;
+    return isCurrentVisibleMatch(participant, match2, this.activeQuery);
+  }
+  /** @internal Called by the native-method wrapper for the active cursor. */
+  setActiveQuery(query) {
+    if (this.disposed)
+      return;
+    this.currentParticipantId = null;
+    this.activeQuery = query;
+    this.activeParticipantFingerprint = this.getParticipantFingerprint(this.getParticipants());
+  }
+  /** @internal Called when a cursor is not aggregating or the bridge is disposed. */
+  clearActiveQuery() {
+    this.currentParticipantId = null;
+    this.activeQuery = null;
+    this.activeParticipantFingerprint = null;
+  }
+  navigateMatch(match2) {
+    try {
+      return this.options.navigate(match2) !== false;
+    } catch (e) {
+      return false;
+    }
+  }
+  setHostSelectionSuppressed(value) {
+    this.suppressHostSelection = value;
+  }
+  isHostSelectionSuppressed() {
+    if (this.suppressHostSelection)
+      return true;
+    try {
+      const search = this.attachedSearch;
+      return (search == null ? void 0 : search.isActive) === false && this.currentParticipantId !== null && this.currentParticipantId !== "host";
+    } catch (e) {
+      return false;
+    }
+  }
+  setCurrentParticipant(participantId) {
+    this.currentParticipantId = participantId;
+  }
+  observeSearchContainer(search) {
+    var _a2;
+    const container = search == null ? void 0 : search.containerEl;
+    const parent = container == null ? void 0 : container.parentElement;
+    if (!(container instanceof HTMLElement) || !(parent instanceof HTMLElement))
+      return;
+    (_a2 = this.searchContainerObserver) == null ? void 0 : _a2.disconnect();
+    this.searchContainerObserver = new MutationObserver(() => {
+      if (!container.isConnected || search.isActive === false)
+        this.dispose();
+    });
+    this.searchContainerObserver.observe(parent, { childList: true, subtree: true });
+    this.searchContainerObserver.observe(container, { attributes: true });
+  }
+  disconnectSearchContainerObserver() {
+    var _a2;
+    (_a2 = this.searchContainerObserver) == null ? void 0 : _a2.disconnect();
+    this.searchContainerObserver = null;
+  }
+  getParticipants() {
+    let participants = [];
+    try {
+      participants = this.options.getParticipants().filter((participant) => Boolean((participant == null ? void 0 : participant.id) && (participant == null ? void 0 : participant.doc) && (participant == null ? void 0 : participant.editor)));
+    } catch (e) {
+      participants = [];
+    }
+    this.syncParticipantDispatchObservers(participants);
+    return participants;
+  }
+  syncParticipantDispatchObservers(participants) {
+    const activeCodeMirrors = /* @__PURE__ */ new Set();
+    for (const participant of participants) {
+      if (participant.id === "host")
+        continue;
+      const cm = participant.editor.cm;
+      if (!cm || typeof cm !== "object" || typeof cm.dispatch !== "function")
+        continue;
+      activeCodeMirrors.add(cm);
+      if (this.participantDispatchUninstallers.has(cm))
+        continue;
+      try {
+        const handleDocumentChange = () => this.handleParticipantDocumentChange();
+        const uninstall = around(cm, {
+          dispatch: (old) => {
+            return function(...args) {
+              var _a2, _b2;
+              const beforeDoc = (_a2 = cm.state) == null ? void 0 : _a2.doc;
+              const result = old.apply(this, args);
+              if (beforeDoc !== ((_b2 = cm.state) == null ? void 0 : _b2.doc))
+                handleDocumentChange();
+              return result;
+            };
+          }
+        });
+        this.participantDispatchUninstallers.set(cm, uninstall);
+      } catch (e) {
+      }
+    }
+    for (const [cm, uninstall] of this.participantDispatchUninstallers) {
+      if (activeCodeMirrors.has(cm))
+        continue;
+      try {
+        uninstall();
+      } catch (e) {
+      }
+      this.participantDispatchUninstallers.delete(cm);
+    }
+  }
+  handleParticipantDocumentChange() {
+    this.refreshActiveSearch();
+  }
+  refreshActiveSearch() {
+    if (this.disposed || !this.attachedSearch)
+      return;
+    const participantFingerprint = this.getParticipantFingerprint(this.getParticipants());
+    if (this.activeQuery !== null && participantFingerprint === this.activeParticipantFingerprint) {
+      return;
+    }
+    this.activeParticipantFingerprint = participantFingerprint;
+    this.clearEmbedHighlights();
+    const search = this.attachedSearch;
+    if (search.isActive === false)
+      return;
+    try {
+      if (typeof search.onSearchInput === "function")
+        search.onSearchInput.call(search);
+    } catch (e) {
+    }
+    try {
+      if (typeof search.updateCount === "function") {
+        search.updateCount.call(search);
+      } else if (typeof search.requestUpdateCount === "function") {
+        search.requestUpdateCount.call(search);
+      }
+    } catch (e) {
+    }
+  }
+  getParticipantFingerprint(participants) {
+    return participants.map((participant) => {
+      var _a2, _b2, _c2, _d2;
+      const doc = participant.doc;
+      let documentId = this.participantDocumentIds.get(doc);
+      if (documentId === void 0) {
+        documentId = this.nextParticipantDocumentId++;
+        this.participantDocumentIds.set(doc, documentId);
+      }
+      const visibleRange = (_b2 = (_a2 = participant.visibleRange) == null ? void 0 : _a2.join(":")) != null ? _b2 : "";
+      const editor = participant.editor;
+      let editorId = this.participantEditorIds.get(editor);
+      if (editorId === void 0) {
+        editorId = this.nextParticipantEditorId++;
+        this.participantEditorIds.set(editor, editorId);
+      }
+      const ignoredRanges = (_d2 = (_c2 = participant.ignoredRanges) == null ? void 0 : _c2.map(([from, to]) => `${from}:${to}`).join(",")) != null ? _d2 : "";
+      return `${participant.id}|${documentId}|${editorId}|${visibleRange}|${ignoredRanges}`;
+    }).join(";");
+  }
+  getAggregateMatches(query, cached) {
+    if (this.disposed)
+      return null;
+    const participants = this.getParticipants();
+    if (!participants.some((participant) => participant.id !== "host"))
+      return null;
+    const fingerprint = this.getParticipantFingerprint(participants);
+    if ((cached == null ? void 0 : cached.fingerprint) === fingerprint)
+      return cached;
+    try {
+      return {
+        fingerprint,
+        participants,
+        matches: collectInlineEditSearchMatches(query, participants)
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+  rangeForMatch(match2, participants) {
+    const participant = participants.find((candidate) => candidate.id === match2.participantId);
+    if (!participant)
+      return null;
+    const from = this.positionForOffset(participant, match2.from);
+    const to = this.positionForOffset(participant, match2.to);
+    if (from === null || to === null)
+      return null;
+    const range = { from, to };
+    setMetadata(range, match2);
+    return range;
+  }
+  isAggregateRange(range) {
+    return getMetadata(range) !== null;
+  }
+  positionForOffset(participant, offset2) {
+    const doc = participant.doc;
+    const clamped = Math.min(Math.max(0, offset2), doc.length);
+    try {
+      if (typeof participant.editor.offsetToPos === "function") {
+        return participant.editor.offsetToPos(clamped);
+      }
+    } catch (e) {
+    }
+    try {
+      const line = doc.lineAt(clamped);
+      return { line: line.number - 1, ch: clamped - line.from };
+    } catch (e) {
+      return null;
+    }
+  }
+  /** @internal Called by the native-method wrapper installed below. */
+  handleAddHighlights(editor, old, ranges, className, args) {
+    var _a2;
+    const aggregateRanges = Array.isArray(ranges) ? ranges.filter((range) => getMetadata(range) !== null) : [];
+    if (aggregateRanges.length === 0) {
+      if (Array.isArray(ranges) && ranges.length === 0)
+        this.clearEmbedHighlights(className);
+      return old.call(editor, ranges, className, ...args);
+    }
+    this.clearEmbedHighlights(className);
+    if (!aggregateRanges.some((range) => {
+      var _a3;
+      return ((_a3 = getMetadata(range)) == null ? void 0 : _a3.participantId) !== "host";
+    })) {
+      return old.call(editor, ranges, className, ...args);
+    }
+    const hostRanges = ranges.filter((range) => {
+      const metadata = getMetadata(range);
+      return !metadata || metadata.participantId === "host";
+    });
+    const result = old.call(editor, hostRanges, className, ...args);
+    const participants = this.getParticipants();
+    const byParticipant = /* @__PURE__ */ new Map();
+    for (const range of ranges) {
+      const metadata = getMetadata(range);
+      if (!metadata || metadata.participantId === "host")
+        continue;
+      const participant = participants.find((candidate) => candidate.id === metadata.participantId);
+      if (!participant)
+        continue;
+      const current = (_a2 = byParticipant.get(metadata.participantId)) != null ? _a2 : { participant, ranges: [] };
+      current.ranges.push({ from: range.from, to: range.to });
+      byParticipant.set(metadata.participantId, current);
+    }
+    for (const { participant, ranges: participantRanges } of byParticipant.values()) {
+      try {
+        participant.editor.addHighlights(participantRanges, className, ...args);
+        this.embedHighlights.push({ editor: participant.editor, className });
+      } catch (e) {
+      }
+    }
+    return result;
+  }
+  /** @internal Called by the native-method wrapper and lifecycle cleanup. */
+  clearEmbedHighlights(className) {
+    const highlights = className === void 0 ? this.embedHighlights.splice(0) : this.embedHighlights.filter((highlight) => highlight.className === className);
+    if (className !== void 0) {
+      for (let index = this.embedHighlights.length - 1; index >= 0; index--) {
+        if (this.embedHighlights[index].className === className)
+          this.embedHighlights.splice(index, 1);
+      }
+    }
+    for (const { editor, className: className2 } of highlights) {
+      try {
+        editor.removeHighlights(className2);
+      } catch (e) {
+      }
+    }
+  }
+};
+var AggregatedInlineSearchCursor = class {
+  constructor(bridge, query, nativeCursor, editor) {
+    this.initialMatchOrder = /* @__PURE__ */ new Map();
+    this.aggregateCache = null;
+    this.currentMatch = null;
+    this.currentRange = null;
+    var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k;
+    this.bridge = bridge;
+    this.query = query;
+    this.nativeCursor = nativeCursor;
+    this.editor = editor;
+    this.initialFrom = (_e2 = (_d2 = (_c2 = (_b2 = (_a2 = editor.cm) == null ? void 0 : _a2.state) == null ? void 0 : _b2.selection) == null ? void 0 : _c2.main) == null ? void 0 : _d2.from) != null ? _e2 : 0;
+    this.initialTo = (_j = (_i = (_h = (_g = (_f2 = editor.cm) == null ? void 0 : _f2.state) == null ? void 0 : _g.selection) == null ? void 0 : _h.main) == null ? void 0 : _i.to) != null ? _j : this.initialFrom;
+    const initialAggregate = this.bridge.getAggregateMatches(this.query);
+    this.aggregateCache = initialAggregate;
+    for (const [index, match2] of (_k = initialAggregate == null ? void 0 : initialAggregate.matches.entries()) != null ? _k : []) {
+      this.initialMatchOrder.set(this.matchKey(match2), index);
+    }
+  }
+  getIndexAndCount() {
+    var _a2, _b2, _c2, _d2, _e2, _f2;
+    const aggregate = this.getAggregateMatches();
+    if (!aggregate)
+      return (_c2 = (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.getIndexAndCount) == null ? void 0 : _b2.call(_a2)) != null ? _c2 : [0, 0];
+    if (!this.currentMatch)
+      return [0, 0];
+    const index = aggregate.matches.findIndex((match2) => isSameMatch(this.currentMatch, match2));
+    if (index === -1) {
+      this.clearCurrent();
+      return (_f2 = (_e2 = (_d2 = this.nativeCursor) == null ? void 0 : _d2.getIndexAndCount) == null ? void 0 : _e2.call(_d2)) != null ? _f2 : [0, 0];
+    }
+    return [index + 1, aggregate.matches.length];
+  }
+  current() {
+    var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i;
+    const aggregate = this.getAggregateMatches();
+    if (!aggregate) {
+      this.clearCurrent();
+      return (_c2 = (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.current) == null ? void 0 : _b2.call(_a2)) != null ? _c2 : null;
+    }
+    if (!this.currentMatch)
+      return (_f2 = (_e2 = (_d2 = this.nativeCursor) == null ? void 0 : _d2.current) == null ? void 0 : _e2.call(_d2)) != null ? _f2 : null;
+    if (!aggregate.matches.some((match2) => isSameMatch(this.currentMatch, match2))) {
+      this.clearCurrent();
+      return (_i = (_h = (_g = this.nativeCursor) == null ? void 0 : _g.current) == null ? void 0 : _h.call(_g)) != null ? _i : null;
+    }
+    return this.currentRange;
+  }
+  findPrevious() {
+    var _a2, _b2, _c2;
+    const aggregate = this.getAggregateMatches();
+    if (!aggregate)
+      return (_c2 = (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.findPrevious) == null ? void 0 : _b2.call(_a2)) != null ? _c2 : null;
+    if (aggregate.matches.length === 0) {
+      this.clearCurrent();
+      return null;
+    }
+    let index = -1;
+    if (this.currentMatch) {
+      const currentIndex = aggregate.matches.findIndex((match2) => isSameMatch(this.currentMatch, match2));
+      index = currentIndex === -1 ? aggregate.matches.length - 1 : currentIndex - 1;
+      if (currentIndex === -1)
+        this.clearCurrent();
+    } else {
+      const hasRenderedOrder = aggregate.participants.some(
+        (participant) => participant.id !== "host" && Number.isFinite(participant.renderedOrder)
+      );
+      for (let i = 0; i < aggregate.matches.length; i++) {
+        const match2 = aggregate.matches[i];
+        const participant = aggregate.participants.find(
+          (candidate) => candidate.id === match2.participantId
+        );
+        const renderedPosition = match2.participantId === "host" ? match2.from : participant == null ? void 0 : participant.renderedOrder;
+        if (hasRenderedOrder && Number.isFinite(renderedPosition) && renderedPosition < this.initialFrom || !hasRenderedOrder && match2.participantId === "host" && match2.from < this.initialFrom) {
+          index = i;
+        }
+      }
+      if (index === -1)
+        index = aggregate.matches.length - 1;
+    }
+    return this.setCurrent(aggregate.matches[(index + aggregate.matches.length) % aggregate.matches.length], aggregate.participants);
+  }
+  findNext() {
+    var _a2, _b2, _c2;
+    const aggregate = this.getAggregateMatches();
+    if (!aggregate)
+      return (_c2 = (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.findNext) == null ? void 0 : _b2.call(_a2)) != null ? _c2 : null;
+    if (aggregate.matches.length === 0) {
+      this.clearCurrent();
+      return null;
+    }
+    let index = -1;
+    if (this.currentMatch) {
+      const currentIndex = aggregate.matches.findIndex((match2) => isSameMatch(this.currentMatch, match2));
+      index = currentIndex === -1 ? 0 : currentIndex + 1;
+      if (currentIndex === -1)
+        this.clearCurrent();
+    } else {
+      const hasRenderedOrder = aggregate.participants.some(
+        (participant) => participant.id !== "host" && Number.isFinite(participant.renderedOrder)
+      );
+      index = aggregate.matches.findIndex((match2) => {
+        const participant = aggregate.participants.find(
+          (candidate) => candidate.id === match2.participantId
+        );
+        const renderedPosition = match2.participantId === "host" ? match2.from : participant == null ? void 0 : participant.renderedOrder;
+        return hasRenderedOrder && Number.isFinite(renderedPosition) ? renderedPosition >= this.initialTo : !hasRenderedOrder && match2.participantId === "host" && match2.from >= this.initialTo;
+      });
+      if (index === -1)
+        index = 0;
+    }
+    return this.setCurrent(aggregate.matches[index % aggregate.matches.length], aggregate.participants);
+  }
+  findAll() {
+    var _a2, _b2, _c2;
+    const aggregate = this.getAggregateMatches();
+    if (!aggregate)
+      return (_c2 = (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.findAll) == null ? void 0 : _b2.call(_a2)) != null ? _c2 : [];
+    return aggregate.matches.map((match2) => this.bridge.rangeForMatch(match2, aggregate.participants)).filter((range) => range !== null);
+  }
+  replace(replacement, origin) {
+    var _a2, _b2;
+    const aggregate = this.getAggregateMatches();
+    if (!aggregate)
+      return (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.replace) == null ? void 0 : _b2.call(_a2, replacement, origin);
+    if (!this.currentMatch || this.currentMatch.participantId !== "host")
+      return;
+    const range = this.bridge.rangeForMatch(this.currentMatch, aggregate.participants);
+    if (!range || typeof this.editor.replaceRange !== "function")
+      return;
+    return this.editor.replaceRange(replacement, range.from, range.to, origin);
+  }
+  replaceAll(replacement, origin) {
+    var _a2, _b2, _c2, _d2;
+    const aggregate = this.bridge.getAggregateMatches(this.query);
+    if (!aggregate)
+      return (_b2 = (_a2 = this.nativeCursor) == null ? void 0 : _a2.replaceAll) == null ? void 0 : _b2.call(_a2, replacement, origin);
+    if (aggregate.matches.some((match2) => match2.participantId !== "host"))
+      return;
+    return (_d2 = (_c2 = this.nativeCursor) == null ? void 0 : _c2.replaceAll) == null ? void 0 : _d2.call(_c2, replacement, origin);
+  }
+  setCurrent(match2, participants) {
+    const range = this.bridge.rangeForMatch(match2, participants);
+    if (!range) {
+      this.clearCurrent();
+      return null;
+    }
+    this.currentMatch = match2;
+    this.currentRange = range;
+    this.bridge.setCurrentParticipant(match2.participantId);
+    return range;
+  }
+  clearCurrent() {
+    this.currentMatch = null;
+    this.currentRange = null;
+    this.bridge.setCurrentParticipant(null);
+  }
+  getAggregateMatches() {
+    const aggregate = this.bridge.getAggregateMatches(this.query, this.aggregateCache);
+    if (!aggregate) {
+      this.aggregateCache = null;
+      this.clearCurrent();
+      return null;
+    }
+    if (aggregate === this.aggregateCache)
+      return aggregate;
+    const matches = [...aggregate.matches].sort((left, right) => {
+      const leftOrder = this.initialMatchOrder.get(this.matchKey(left));
+      const rightOrder = this.initialMatchOrder.get(this.matchKey(right));
+      if (leftOrder === void 0 && rightOrder === void 0)
+        return 0;
+      if (leftOrder === void 0)
+        return 1;
+      if (rightOrder === void 0)
+        return -1;
+      return leftOrder - rightOrder;
+    });
+    this.aggregateCache = { ...aggregate, matches };
+    return this.aggregateCache;
+  }
+  matchKey(match2) {
+    return `${match2.participantId}|${match2.from}|${match2.to}|${match2.line}`;
+  }
+};
+
 // src/features/inline-edit-engine/InlineEditEngine.ts
 var INLINE_EDIT_ACTIVE_CLASS = "blp-inline-edit-active";
 var INLINE_EDIT_HOST_CLASS = "blp-inline-edit-host";
@@ -12759,6 +13699,114 @@ var READING_RANGE_ACTIVE_CLASS = "blp-reading-range-active";
 var LIVE_PREVIEW_RANGE_ACTIVE_CLASS = "blp-live-preview-range-active";
 var READING_RANGE_HOST_CLASS = "blp-reading-range-host";
 var LIVE_PREVIEW_RANGE_HOST_CLASS = "blp-live-preview-range-host";
+var isCompleteLineRange2 = (value) => Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number";
+var rejectReadOnlyEmbedChanges = import_state2.EditorState.transactionFilter.of((transaction) => {
+  if (!transaction.docChanged)
+    return transaction;
+  if (transaction.isUserEvent("set"))
+    return transaction;
+  if (transaction.startState.facet(import_state2.EditorState.readOnly))
+    return [];
+  const visibleRange = transaction.startState.field(frontmatterFacet, false);
+  const editableRange2 = transaction.startState.field(selectiveLinesFacet, false);
+  if (!isCompleteLineRange2(visibleRange) || !isCompleteLineRange2(editableRange2))
+    return transaction;
+  if (editableRange2[0] <= visibleRange[0] && editableRange2[1] >= visibleRange[1])
+    return transaction;
+  const doc = transaction.startState.doc;
+  const editableStart = doc.line(Math.min(Math.max(1, editableRange2[0]), doc.lines)).from;
+  const editableEndLine = Math.min(Math.max(1, editableRange2[1]), doc.lines);
+  const editableEnd = doc.line(Math.max(1, editableEndLine)).to;
+  let staysEditable = true;
+  transaction.changes.iterChangedRanges((from, to) => {
+    if (from < editableStart || to > editableEnd)
+      staysEditable = false;
+  });
+  if (!staysEditable)
+    return [];
+  return transaction;
+});
+var READ_ONLY_EMBED_EXTENSIONS = [import_state2.EditorState.readOnly.of(true), rejectReadOnlyEmbedChanges];
+var READ_ONLY_RANGE_EXTENSIONS = [rejectReadOnlyEmbedChanges];
+var isTrustedSourceSyncTransaction = (transaction) => {
+  var _a2;
+  try {
+    return transaction.docChanged === true && ((_a2 = transaction.isUserEvent) == null ? void 0 : _a2.call(transaction, "set")) === true;
+  } catch (e) {
+    return false;
+  }
+};
+var isCmTransaction = (value) => {
+  var _a2;
+  if (!value || typeof value !== "object")
+    return false;
+  const transaction = value;
+  return Boolean(
+    ((_a2 = transaction.startState) == null ? void 0 : _a2.doc) && transaction.changes && typeof transaction.changes.iterChangedRanges === "function"
+  );
+};
+var getDispatchedTransactions = (cm, args) => {
+  var _a2, _b2;
+  if (args.length === 1 && Array.isArray(args[0])) {
+    return args[0].every(isCmTransaction) ? args[0] : null;
+  }
+  if (args.length === 1 && isCmTransaction(args[0]))
+    return [args[0]];
+  try {
+    const transaction = (_b2 = (_a2 = cm == null ? void 0 : cm.state) == null ? void 0 : _a2.update) == null ? void 0 : _b2.call(_a2, ...args);
+    return isCmTransaction(transaction) ? [transaction] : null;
+  } catch (e) {
+    return null;
+  }
+};
+var getEditableLineRange = (cm, fallback) => {
+  var _a2, _b2;
+  try {
+    const range = (_b2 = (_a2 = cm == null ? void 0 : cm.state) == null ? void 0 : _a2.field) == null ? void 0 : _b2.call(_a2, selectiveLinesFacet, false);
+    if (isCompleteLineRange2(range))
+      return [range[0], range[1]];
+  } catch (e) {
+  }
+  const resolvedRange = cm == null ? void 0 : cm.__blpInlineEditResolvedEditableRange;
+  if (isCompleteLineRange2(resolvedRange))
+    return [resolvedRange[0], resolvedRange[1]];
+  return isCompleteLineRange2(fallback) ? fallback : null;
+};
+var changesStayInsideEditableLines = (transaction, editableRange2) => {
+  var _a2, _b2;
+  const doc = (_a2 = transaction.startState) == null ? void 0 : _a2.doc;
+  if (!doc || typeof doc.line !== "function" || typeof doc.lines !== "number")
+    return false;
+  const startLine = Math.min(Math.max(1, editableRange2[0]), doc.lines);
+  const endLine = Math.min(Math.max(1, editableRange2[1]), doc.lines);
+  const editableStart = doc.line(Math.min(startLine, endLine)).from;
+  const editableEnd = doc.line(Math.max(startLine, endLine)).to;
+  let staysEditable = true;
+  try {
+    (_b2 = transaction.changes) == null ? void 0 : _b2.iterChangedRanges((from, to) => {
+      if (from < editableStart || to > editableEnd)
+        staysEditable = false;
+    });
+  } catch (e) {
+    return false;
+  }
+  return staysEditable;
+};
+var shouldRejectReadOnlyDispatch = (cm, args, readOnly, fallbackEditableRange) => {
+  const transactions = getDispatchedTransactions(cm, args);
+  if (!transactions)
+    return true;
+  return transactions.some((transaction) => {
+    if (!transaction.docChanged)
+      return false;
+    if (isTrustedSourceSyncTransaction(transaction))
+      return false;
+    if (readOnly)
+      return true;
+    const editableRange2 = getEditableLineRange(cm, fallbackEditableRange);
+    return !editableRange2 || !changesStayInsideEditableLines(transaction, editableRange2);
+  });
+};
 function syncRangeEmbedWrapperPadding(embedEl, wrapper) {
   try {
     wrapper.style.padding = "var(--embed-padding, 0px)";
@@ -12779,9 +13827,17 @@ function syncRangeEmbedWrapperPadding(embedEl, wrapper) {
 var InlineEditEngine = class {
   constructor(plugin) {
     this.loaded = false;
+    // Refreshes validate the actual host, DOM, mode, and settings after awaits;
+    // this generation changes only across unload/reload so eligible mounts survive
+    // a concurrent Live Preview rescan and unrelated File Outliner refresh.
+    this.lifecycleGeneration = 0;
     this.didInitialMetadataResolve = false;
     this.commandRoutingDepth = 0;
     this.commandRoutingUninstallers = [];
+    this.searchBridges = /* @__PURE__ */ new Map();
+    this.searchParticipantSnapshots = /* @__PURE__ */ new WeakMap();
+    this.searchParticipantObjectIds = /* @__PURE__ */ new WeakMap();
+    this.nextSearchParticipantObjectId = 1;
     this.readingRangeEmbedsByPath = /* @__PURE__ */ new Map();
     this.livePreviewRangeEmbedsByPath = /* @__PURE__ */ new Map();
     this.readingRangeDebounceTimers = /* @__PURE__ */ new Map();
@@ -12789,6 +13845,7 @@ var InlineEditEngine = class {
     this.readingRangeChildren = /* @__PURE__ */ new Set();
     this.livePreviewRangeChildByEmbed = /* @__PURE__ */ new WeakMap();
     this.livePreviewRangeChildren = /* @__PURE__ */ new Set();
+    this.hiddenEmbedCleanupTimer = null;
     this.readingRangeObserver = null;
     this.pendingEmbeds = /* @__PURE__ */ new WeakSet();
     this.livePreviewObservers = /* @__PURE__ */ new Map();
@@ -12839,9 +13896,18 @@ var InlineEditEngine = class {
     }, 0);
   }
   unload() {
+    this.lifecycleGeneration += 1;
     if (!this.loaded)
       return;
     this.loaded = false;
+    if (this.hiddenEmbedCleanupTimer !== null) {
+      try {
+        window.clearTimeout(this.hiddenEmbedCleanupTimer);
+      } catch (e) {
+      }
+      this.hiddenEmbedCleanupTimer = null;
+    }
+    this.cleanupSearchBridges();
     this.disconnectAllObservers();
     this.uninstallCommandRouting();
     this.cleanupReadingRangeRendering();
@@ -12939,6 +14005,24 @@ var InlineEditEngine = class {
     } catch (e) {
     }
   }
+  installReadOnlyEditorGuard(cm, readOnly, editableRange2) {
+    if (typeof (cm == null ? void 0 : cm.dispatch) !== "function")
+      return null;
+    try {
+      const uninstall = around(cm, {
+        dispatch: (old) => {
+          return function(...args) {
+            if (shouldRejectReadOnlyDispatch(cm, args, readOnly, editableRange2))
+              return;
+            return old.apply(this, args);
+          };
+        }
+      });
+      return typeof uninstall === "function" ? uninstall : null;
+    } catch (e) {
+      return null;
+    }
+  }
   isInlineEditActive() {
     const { inlineEditEnabled, inlineEditFile, inlineEditHeading, inlineEditBlock } = this.plugin.settings;
     return inlineEditEnabled && (inlineEditFile || inlineEditHeading || inlineEditBlock);
@@ -12950,11 +14034,16 @@ var InlineEditEngine = class {
       this.disconnectAllObservers();
       this.leaves.cleanup();
       this.focus.cleanup();
+      this.refreshSearchBridges();
+      this.cleanupSearchBridges();
       return;
     }
     window.setTimeout(() => {
       this.refreshLivePreviewObservers();
+      this.cleanupInvalidLivePreviewEmbeds();
       this.cleanupHiddenEmbeds();
+      this.cleanupSearchBridgesForInvalidHosts();
+      this.refreshSearchBridges();
     }, 50);
   }
   onSettingsChanged() {
@@ -12964,9 +14053,14 @@ var InlineEditEngine = class {
       this.disconnectAllObservers();
       this.leaves.cleanup();
       this.focus.cleanup();
+      this.refreshSearchBridges();
+      this.cleanupSearchBridges();
       return;
     }
-    this.refreshLivePreviewObservers();
+    this.cleanupInvalidLivePreviewEmbeds();
+    this.refreshLivePreviewObservers(true);
+    this.cleanupSearchBridgesForInvalidHosts();
+    this.refreshSearchBridges();
   }
   installFocusTracking() {
     this.plugin.registerDomEvent(document, "focusin", (event) => {
@@ -13058,7 +14152,10 @@ var InlineEditEngine = class {
     if (!root)
       return;
     const observer = new MutationObserver((mutations) => {
+      let hasRemovedNodes = false;
       for (const mutation of mutations) {
+        if (mutation.removedNodes.length > 0)
+          hasRemovedNodes = true;
         for (const removed of Array.from(mutation.removedNodes)) {
           if (!(removed instanceof HTMLElement))
             continue;
@@ -13070,6 +14167,8 @@ var InlineEditEngine = class {
           this.scanReadingRangeEmbedsInNode(added, null, "mutation");
         }
       }
+      if (hasRemovedNodes)
+        this.scheduleHiddenEmbedCleanup();
     });
     try {
       observer.observe(root, { childList: true, subtree: true });
@@ -13369,7 +14468,23 @@ var InlineEditEngine = class {
                 engine.commandRoutingDepth -= 1;
               }
             }
-            return old.call(this, command, ...args);
+            const searchHost = (command == null ? void 0 : command.id) === "editor:open-search" ? engine.getActiveLivePreviewHostView() : null;
+            const searchBridge = searchHost ? engine.installSearchBridge(searchHost) : null;
+            try {
+              if (searchHost && searchBridge) {
+                const search = engine.getDocumentSearch(searchHost);
+                if (!searchBridge.attachSearch(search)) {
+                  searchBridge.dispose();
+                  engine.searchBridges.delete(searchHost);
+                }
+              }
+              return old.call(this, command, ...args);
+            } catch (error) {
+              searchBridge == null ? void 0 : searchBridge.dispose();
+              if (searchHost)
+                engine.searchBridges.delete(searchHost);
+              throw error;
+            }
           };
         }
       });
@@ -13404,6 +14519,330 @@ var InlineEditEngine = class {
     }
     if (uninstallers.length > 0) {
       this.commandRoutingUninstallers.push(...uninstallers);
+    }
+  }
+  getActiveLivePreviewHostView() {
+    var _a2;
+    const view = (_a2 = this.plugin.app.workspace.activeLeaf) == null ? void 0 : _a2.view;
+    return view instanceof import_obsidian7.MarkdownView && this.isLivePreviewHostView(view) ? view : null;
+  }
+  getDocumentSearch(view) {
+    var _a2, _b2, _c2, _d2;
+    try {
+      const currentMode = view.currentMode;
+      if (currentMode && typeof currentMode === "object" && currentMode.search)
+        return currentMode.search;
+      return (_d2 = (_c2 = (_b2 = (_a2 = view.sourceMode) == null ? void 0 : _a2.cmEditor) == null ? void 0 : _b2.editorComponent) == null ? void 0 : _c2.search) != null ? _d2 : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  isLivePreviewHostView(view) {
+    var _a2;
+    try {
+      if (!((_a2 = view == null ? void 0 : view.containerEl) == null ? void 0 : _a2.isConnected))
+        return false;
+      if (view.getMode() === "preview")
+        return false;
+      if (view.containerEl.closest(`.${EmbedLeafManager.INLINE_EDIT_ROOT_CLASS}`))
+        return false;
+      const rootEl = view.containerEl.querySelector(".markdown-source-view");
+      return Boolean(rootEl == null ? void 0 : rootEl.classList.contains("is-live-preview"));
+    } catch (e) {
+      return false;
+    }
+  }
+  installSearchBridge(hostView) {
+    var _a2;
+    (_a2 = this.searchBridges.get(hostView)) == null ? void 0 : _a2.dispose();
+    this.searchBridges.delete(hostView);
+    try {
+      const bridge = new InlineEditSearchBridge({
+        editor: hostView.editor,
+        getParticipants: () => this.getSearchParticipants(hostView),
+        navigate: (match2) => this.navigateSearchMatch(hostView, match2),
+        onDispose: () => {
+          if (this.searchBridges.get(hostView) === bridge)
+            this.searchBridges.delete(hostView);
+        }
+      });
+      if (!bridge.install()) {
+        bridge.dispose();
+        return null;
+      }
+      this.searchBridges.set(hostView, bridge);
+      return bridge;
+    } catch (e) {
+      return null;
+    }
+  }
+  cleanupSearchBridges() {
+    for (const bridge of this.searchBridges.values()) {
+      bridge.dispose();
+    }
+    this.searchBridges.clear();
+  }
+  cleanupSearchBridgesForInvalidHosts() {
+    for (const [view, bridge] of this.searchBridges) {
+      if (this.isLivePreviewHostView(view))
+        continue;
+      bridge.dispose();
+      this.searchBridges.delete(view);
+    }
+  }
+  refreshSearchBridges() {
+    for (const bridge of this.searchBridges.values()) {
+      bridge.refreshActiveSearch();
+    }
+  }
+  getSearchParticipants(hostView) {
+    var _a2, _b2, _c2, _d2, _e2, _f2;
+    const hostEditor = hostView.editor;
+    const hostDoc = (_b2 = (_a2 = hostEditor == null ? void 0 : hostEditor.cm) == null ? void 0 : _a2.state) == null ? void 0 : _b2.doc;
+    if (!hostDoc)
+      return [];
+    const fail = () => {
+      this.searchParticipantSnapshots.delete(hostView);
+      return [];
+    };
+    const embeds = this.leaves.getActiveEmbeds().filter((embed) => this.isOwnedLivePreviewEmbed(hostView, embed)).sort((left, right) => this.compareEmbedDocumentOrder(left.containerEl, right.containerEl));
+    const prepared = [];
+    const signatureParts = [`host:${this.getSearchParticipantObjectId(hostDoc)}`];
+    for (const embed of embeds) {
+      if (!embed.id || !embed.kind)
+        return fail();
+      const editor = (_c2 = embed.view) == null ? void 0 : _c2.editor;
+      const cm = editor == null ? void 0 : editor.cm;
+      const doc = (_d2 = cm == null ? void 0 : cm.state) == null ? void 0 : _d2.doc;
+      if (!editor || !cm || !doc)
+        return fail();
+      const visibleRange = this.getSearchVisibleRange(cm);
+      if (embed.kind !== "file" && !visibleRange)
+        return fail();
+      const editorContainer = (_e2 = embed.view) == null ? void 0 : _e2.containerEl;
+      if (!editorContainer || !hostView.containerEl.contains(editorContainer) || !this.isElementShown(editorContainer)) {
+        return fail();
+      }
+      prepared.push({ embed, id: embed.id, editor, doc, visibleRange });
+      signatureParts.push([
+        embed.id,
+        embed.kind,
+        this.getSearchParticipantObjectId(embed.containerEl),
+        this.getSearchParticipantObjectId(editorContainer),
+        this.getSearchParticipantObjectId(editor),
+        this.getSearchParticipantObjectId(doc),
+        (_f2 = visibleRange == null ? void 0 : visibleRange.join(":")) != null ? _f2 : ""
+      ].join("|"));
+    }
+    const signature = signatureParts.join(";");
+    const cached = this.searchParticipantSnapshots.get(hostView);
+    if ((cached == null ? void 0 : cached.signature) === signature)
+      return cached.participants;
+    const ordered = [];
+    for (const participant of prepared) {
+      const renderedOrder = this.getEmbedHostOffset(hostView, participant.embed.containerEl);
+      if (renderedOrder === null) {
+        return fail();
+      }
+      ordered.push({ ...participant, renderedOrder });
+    }
+    const sourceMapping = this.getManagedEmbedSourceRanges(hostDoc.toString(), ordered);
+    const participants = [
+      {
+        id: "host",
+        doc: hostDoc,
+        editor: hostEditor,
+        ignoredRanges: sourceMapping.ranges
+      }
+    ];
+    for (const { id, editor, doc, visibleRange, renderedOrder } of ordered) {
+      participants.push({
+        id,
+        doc,
+        visibleRange,
+        renderedOrder,
+        editor
+      });
+    }
+    if (sourceMapping.complete) {
+      this.searchParticipantSnapshots.set(hostView, { signature, participants });
+    }
+    return participants;
+  }
+  getManagedEmbedSourceRanges(hostText, embeds) {
+    const anchors = [];
+    for (const { embed, renderedOrder } of embeds) {
+      const embedEl = embed.containerEl.closest(".internal-embed.markdown-embed");
+      const source = embedEl ? this.getInternalEmbedLink(embedEl) : null;
+      if (!embedEl || !source)
+        continue;
+      anchors.push({ source: source.split("|")[0], hostOffset: renderedOrder });
+    }
+    const ranges = locateManagedEmbedSourceRanges(hostText, anchors);
+    return {
+      ranges,
+      complete: anchors.length === embeds.length && ranges.length === anchors.length
+    };
+  }
+  getSearchParticipantObjectId(value) {
+    let id = this.searchParticipantObjectIds.get(value);
+    if (id === void 0) {
+      id = this.nextSearchParticipantObjectId++;
+      this.searchParticipantObjectIds.set(value, id);
+    }
+    return id;
+  }
+  isEmbedKindEnabled(kind) {
+    if (!this.plugin.settings.inlineEditEnabled)
+      return false;
+    switch (kind) {
+      case "block":
+      case "range":
+        return this.plugin.settings.inlineEditBlock;
+      case "heading":
+        return this.plugin.settings.inlineEditHeading;
+      case "file":
+        return this.plugin.settings.inlineEditFile;
+      default:
+        return false;
+    }
+  }
+  isElementShown(element) {
+    if (!(element == null ? void 0 : element.isConnected))
+      return false;
+    const isShown = element.isShown;
+    if (typeof isShown !== "function")
+      return true;
+    try {
+      return isShown.call(element);
+    } catch (e) {
+      return false;
+    }
+  }
+  isOwnedLivePreviewEmbed(hostView, embed) {
+    var _a2;
+    if (!this.isLivePreviewHostView(hostView))
+      return false;
+    if (!embed || embed.hostView !== hostView)
+      return false;
+    if (embed.kind !== void 0 && !this.isEmbedKindEnabled(embed.kind))
+      return false;
+    if (!((_a2 = embed.containerEl) == null ? void 0 : _a2.isConnected) || !hostView.containerEl.contains(embed.containerEl))
+      return false;
+    if (!this.isElementShown(embed.containerEl))
+      return false;
+    return true;
+  }
+  isSearchableEmbed(hostView, embed) {
+    var _a2, _b2, _c2;
+    if (!this.isOwnedLivePreviewEmbed(hostView, embed))
+      return false;
+    if (!(embed == null ? void 0 : embed.id) || !embed.kind)
+      return false;
+    if (embed.kind !== "file" && !this.getSearchVisibleRange((_b2 = (_a2 = embed.view) == null ? void 0 : _a2.editor) == null ? void 0 : _b2.cm))
+      return false;
+    const editorContainer = (_c2 = embed.view) == null ? void 0 : _c2.containerEl;
+    return Boolean(
+      editorContainer && hostView.containerEl.contains(editorContainer) && this.isElementShown(editorContainer)
+    );
+  }
+  cleanupInvalidLivePreviewEmbeds() {
+    var _a2;
+    for (const embed of this.leaves.getActiveEmbeds()) {
+      if (!embed.hostView)
+        continue;
+      const valid = this.isEmbedKindEnabled(embed.kind) && this.isLivePreviewHostView(embed.hostView) && embed.hostView.containerEl.contains(embed.containerEl) && this.isElementShown(embed.containerEl) && (!((_a2 = embed.view) == null ? void 0 : _a2.containerEl) || embed.hostView.containerEl.contains(embed.view.containerEl) && this.isElementShown(embed.view.containerEl));
+      if (valid)
+        continue;
+      if (this.focus.getFocused() === embed) {
+        this.focus.setFocused(null);
+      }
+      this.leaves.detach(embed);
+    }
+  }
+  getSearchVisibleRange(cm) {
+    var _a2, _b2;
+    try {
+      const contentRange2 = (_b2 = (_a2 = cm == null ? void 0 : cm.state) == null ? void 0 : _a2.field) == null ? void 0 : _b2.call(_a2, frontmatterFacet, false);
+      if (this.isLineRange(contentRange2))
+        return [contentRange2[0], contentRange2[1]];
+    } catch (e) {
+    }
+    const directRange = cm == null ? void 0 : cm.__blpInlineEditResolvedVisibleRange;
+    if (this.isLineRange(directRange))
+      return [directRange[0], directRange[1]];
+    return void 0;
+  }
+  isLineRange(value) {
+    return Boolean(
+      Array.isArray(value) && value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number"
+    );
+  }
+  compareEmbedDocumentOrder(left, right) {
+    const leftEmbed = left.closest(".internal-embed.markdown-embed");
+    const rightEmbed = right.closest(".internal-embed.markdown-embed");
+    if (!leftEmbed || !rightEmbed || leftEmbed === rightEmbed)
+      return 0;
+    const position = leftEmbed.compareDocumentPosition(rightEmbed);
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING)
+      return -1;
+    if (position & Node.DOCUMENT_POSITION_PRECEDING)
+      return 1;
+    return 0;
+  }
+  getEmbedHostOffset(hostView, embedContainer) {
+    var _a2;
+    const cm = (_a2 = hostView.editor) == null ? void 0 : _a2.cm;
+    if (!cm || typeof cm.posAtDOM !== "function")
+      return null;
+    const outerEmbed = embedContainer.closest(".internal-embed.markdown-embed");
+    const candidates = outerEmbed === embedContainer ? [embedContainer] : [outerEmbed, embedContainer];
+    for (const candidate of candidates) {
+      if (!candidate)
+        continue;
+      try {
+        const offset2 = cm.posAtDOM(candidate, -1);
+        if (typeof offset2 === "number" && Number.isFinite(offset2))
+          return offset2;
+      } catch (e) {
+      }
+    }
+    return null;
+  }
+  navigateSearchMatch(hostView, match2) {
+    var _a2, _b2, _c2, _d2;
+    if (match2.participantId === "host")
+      return false;
+    const embed = this.leaves.getActiveEmbeds().find((candidate) => candidate.id === match2.participantId && this.isSearchableEmbed(hostView, candidate));
+    if (!embed)
+      return false;
+    const editor = (_a2 = embed.view) == null ? void 0 : _a2.editor;
+    const doc = (_c2 = (_b2 = editor == null ? void 0 : editor.cm) == null ? void 0 : _b2.state) == null ? void 0 : _c2.doc;
+    if (!editor || !doc)
+      return false;
+    const from = this.getSearchPosition(editor, doc, match2.from);
+    const to = this.getSearchPosition(editor, doc, match2.to);
+    if (!from || !to)
+      return false;
+    try {
+      (_d2 = editor.scrollIntoView) == null ? void 0 : _d2.call(editor, { from, to }, true);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+  getSearchPosition(editor, doc, offset2) {
+    const clamped = Math.min(Math.max(0, offset2), doc.length);
+    try {
+      if (typeof editor.offsetToPos === "function")
+        return editor.offsetToPos(clamped);
+    } catch (e) {
+    }
+    try {
+      const line = doc.lineAt(clamped);
+      return { line: line.number - 1, ch: clamped - line.from };
+    } catch (e) {
+      return null;
     }
   }
   patchWorkspaceActiveLeafGetter() {
@@ -13484,15 +14923,31 @@ var InlineEditEngine = class {
     this.commandRoutingDepth = 0;
   }
   cleanupHiddenEmbeds() {
+    var _a2;
     const embeds = this.leaves.getActiveEmbeds();
     for (const embed of embeds) {
-      if (!embed.containerEl.isConnected || !embed.containerEl.isShown()) {
+      const editorContainer = (_a2 = embed.view) == null ? void 0 : _a2.containerEl;
+      const hostIsStale = Boolean(
+        embed.hostView && (!this.isLivePreviewHostView(embed.hostView) || !embed.hostView.containerEl.contains(embed.containerEl) || editorContainer && (!embed.hostView.containerEl.contains(editorContainer) || !this.isElementShown(editorContainer)))
+      );
+      if (!this.isElementShown(embed.containerEl) || hostIsStale) {
         if (this.focus.getFocused() === embed) {
           this.focus.setFocused(null);
         }
         this.leaves.detach(embed);
       }
     }
+  }
+  scheduleHiddenEmbedCleanup() {
+    if (!this.loaded || this.hiddenEmbedCleanupTimer !== null)
+      return;
+    this.hiddenEmbedCleanupTimer = window.setTimeout(() => {
+      this.hiddenEmbedCleanupTimer = null;
+      if (this.loaded) {
+        this.cleanupHiddenEmbeds();
+        this.refreshSearchBridges();
+      }
+    }, 0);
   }
   disconnectObserverEntry(entry) {
     try {
@@ -13686,6 +15141,7 @@ var InlineEditEngine = class {
         await this.processInlineEmbed(embedEl, ctx, view);
       }
       this.cleanupHiddenEmbeds();
+      this.refreshSearchBridges();
     } finally {
       entry.processing = false;
       if (entry.pendingEmbeds.size > 0) {
@@ -13726,7 +15182,7 @@ var InlineEditEngine = class {
     let embedLink = embedEl.getAttribute("src");
     const altText = embedEl.getAttribute("alt");
     if (!embedLink && altText) {
-      const match2 = altText.match(/(.+?)\\s*>\\s*(.+)/);
+      const match2 = altText.match(/^(.+?)\s*>\s*(.+)$/);
       if (match2) {
         let subpath = match2[2].trim();
         if (subpath.startsWith("#")) {
@@ -13798,7 +15254,7 @@ var InlineEditEngine = class {
       return null;
     return { file, subpath, range: [start, end], isRange };
   }
-  parseHeadingEmbed(embedEl, ctx) {
+  parseHeadingEmbed(embedEl, ctx, allowReadOnlyHeading = false) {
     const embedLink = this.getInternalEmbedLink(embedEl);
     if (!embedLink)
       return null;
@@ -13824,8 +15280,20 @@ var InlineEditEngine = class {
     if (!start || !end)
       return null;
     const editableStart = start + 1;
-    if (editableStart > end)
-      return null;
+    if (editableStart > end) {
+      if (!allowReadOnlyHeading)
+        return null;
+      return {
+        kind: "heading",
+        file,
+        subpath,
+        visibleRange: [start, end],
+        // Keep the range valid for the existing selective-editor facets;
+        // the readOnly flag makes a heading-only participant non-editable.
+        editableRange: [start, end],
+        readOnly: true
+      };
+    }
     return {
       kind: "heading",
       file,
@@ -13859,7 +15327,7 @@ var InlineEditEngine = class {
       editableRange: [1, maxLine]
     };
   }
-  parseInlineEmbed(embedEl, ctx) {
+  parseInlineEmbed(embedEl, ctx, allowReadOnlyHeading = false) {
     if (!this.plugin.settings.inlineEditEnabled)
       return null;
     if (this.plugin.settings.inlineEditBlock) {
@@ -13875,7 +15343,7 @@ var InlineEditEngine = class {
       }
     }
     if (this.plugin.settings.inlineEditHeading) {
-      const parsedHeading = this.parseHeadingEmbed(embedEl, ctx);
+      const parsedHeading = this.parseHeadingEmbed(embedEl, ctx, allowReadOnlyHeading);
       if (parsedHeading)
         return parsedHeading;
     }
@@ -14143,6 +15611,8 @@ var InlineEditEngine = class {
   }
   async mountInlineEmbedCore(embedEl, ctx, opts) {
     var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k;
+    if (!this.loaded)
+      return;
     if (opts.requireLivePreview && !this.isInLivePreview(embedEl)) {
       this.debugSkip(embedEl, "skip:not-live-preview", { origin: opts.origin });
       return;
@@ -14165,7 +15635,8 @@ var InlineEditEngine = class {
       return;
     }
     const passiveLivePreviewMount = this.isPassiveLivePreviewMount(opts);
-    const parsed = this.parseInlineEmbed(embedEl, ctx);
+    const mountGeneration = opts.requireLivePreview ? this.lifecycleGeneration : null;
+    const parsed = this.parseInlineEmbed(embedEl, ctx, passiveLivePreviewMount);
     if (!parsed) {
       this.debugSkip(embedEl, "skip:parse-failed", {
         origin: opts.origin,
@@ -14173,6 +15644,10 @@ var InlineEditEngine = class {
         alt: embedEl.getAttribute("alt"),
         ctxSourcePath: ctx.sourcePath
       });
+      return;
+    }
+    if (!this.isMountStillValid(embedEl, opts, parsed, mountGeneration)) {
+      this.debugSkip(embedEl, "skip:stale-mount", { origin: opts.origin });
       return;
     }
     if (parsed.kind === "range") {
@@ -14184,6 +15659,9 @@ var InlineEditEngine = class {
     }
     this.pendingEmbeds.add(embedEl);
     const { hostEl, cleanup } = this.prepareEmbedShell(embedEl);
+    let stopReadOnlyGuard = () => {
+    };
+    let mountedEmbed = null;
     try {
       this.debugLog("mount:start", {
         src: embedEl.getAttribute("src"),
@@ -14198,8 +15676,16 @@ var InlineEditEngine = class {
         containerEl: hostEl,
         file: parsed.file,
         sourcePath: ctx.sourcePath,
-        subpath: parsed.subpath
+        subpath: parsed.subpath,
+        kind: parsed.kind,
+        readOnly: parsed.readOnly,
+        hostView: opts.hostView
       });
+      mountedEmbed = embed;
+      if (!this.isMountStillValid(embedEl, opts, parsed, mountGeneration)) {
+        this.detachMountedEmbed(embed, cleanup);
+        return;
+      }
       const stopPropagation = (event) => {
         event.stopPropagation();
       };
@@ -14213,6 +15699,10 @@ var InlineEditEngine = class {
       hostEl.addEventListener("keydown", stopPropagation);
       const stopRemeasure = this.attachHostRemeasure(hostEl, opts.hostView);
       embed.restore = () => {
+        try {
+          stopReadOnlyGuard();
+        } catch (e) {
+        }
         try {
           stopRemeasure();
         } catch (e) {
@@ -14232,11 +15722,15 @@ var InlineEditEngine = class {
         cleanup();
       };
       if (!hostEl.isConnected) {
-        this.leaves.detach(embed);
+        this.detachMountedEmbed(embed, cleanup);
         return;
       }
       this.leaves.reparent(hostEl, embed.view.containerEl);
       const cm = await this.waitForEditorView(embed.view);
+      if (!this.isMountStillValid(embedEl, opts, parsed, mountGeneration)) {
+        this.detachMountedEmbed(embed, cleanup);
+        return;
+      }
       if (cm) {
         try {
           cm.contentDOM.contentEditable = "true";
@@ -14247,11 +15741,42 @@ var InlineEditEngine = class {
         } catch (e) {
         }
         this.ensureEmbedEditorExtensions(cm);
+        if (passiveLivePreviewMount && parsed.readOnly) {
+          try {
+            if (cm.contentDOM)
+              cm.contentDOM.contentEditable = "false";
+          } catch (e) {
+          }
+        }
         const resolvedRanges = this.resolveEmbedLineRanges(parsed, cm);
         try {
           cm.__blpInlineEditResolvedVisibleRange = resolvedRanges.visibleRange;
           cm.__blpInlineEditResolvedEditableRange = resolvedRanges.editableRange;
         } catch (e) {
+        }
+        const needsReadOnlyGuard = passiveLivePreviewMount && (parsed.readOnly || resolvedRanges.visibleRange[0] !== resolvedRanges.editableRange[0] || resolvedRanges.visibleRange[1] !== resolvedRanges.editableRange[1]);
+        if (needsReadOnlyGuard) {
+          const guard = this.installReadOnlyEditorGuard(
+            cm,
+            Boolean(parsed.readOnly),
+            resolvedRanges.editableRange
+          );
+          if (!guard) {
+            this.detachMountedEmbed(embed, cleanup);
+            return;
+          }
+          stopReadOnlyGuard = guard;
+        }
+        if (passiveLivePreviewMount) {
+          try {
+            cm.dispatch({
+              filter: false,
+              effects: import_state2.StateEffect.appendConfig.of(
+                parsed.readOnly ? READ_ONLY_EMBED_EXTENSIONS : READ_ONLY_RANGE_EXTENSIONS
+              )
+            });
+          } catch (e) {
+          }
         }
         const prevState = cm.state;
         cm.dispatch({
@@ -14295,7 +15820,10 @@ var InlineEditEngine = class {
       }
       this.debugLog("mount:done", embedEl.getAttribute("src"));
     } catch (error) {
-      cleanup();
+      if (mountedEmbed)
+        this.detachMountedEmbed(mountedEmbed, cleanup);
+      else
+        cleanup();
       try {
         window.__blpInlineEditLastError = String((_j = error == null ? void 0 : error.message) != null ? _j : error);
         window.__blpInlineEditLastErrorStack = String((_k = error == null ? void 0 : error.stack) != null ? _k : "");
@@ -14304,6 +15832,34 @@ var InlineEditEngine = class {
       console.error("InlineEditEngine: failed to mount embed editor", error);
     } finally {
       this.pendingEmbeds.delete(embedEl);
+    }
+  }
+  isMountStillValid(embedEl, opts, parsed, generation) {
+    var _a2;
+    if (!this.loaded)
+      return false;
+    if (opts.requireLivePreview && generation !== this.lifecycleGeneration)
+      return false;
+    if (!(embedEl == null ? void 0 : embedEl.isConnected) || !this.isEmbedKindEnabled(parsed.kind))
+      return false;
+    if (opts.requireLivePreview) {
+      if (!this.isInLivePreview(embedEl))
+        return false;
+      if (!((_a2 = opts.hostView) == null ? void 0 : _a2.containerEl))
+        return true;
+      return this.isLivePreviewHostView(opts.hostView) && opts.hostView.containerEl.contains(embedEl);
+    }
+    return Boolean(embedEl.closest(".blp-file-outliner-view"));
+  }
+  detachMountedEmbed(embed, cleanup) {
+    try {
+      this.leaves.detach(embed);
+    } catch (e) {
+    } finally {
+      try {
+        cleanup();
+      } catch (e) {
+      }
     }
   }
 };
@@ -15234,6 +16790,7 @@ var T = class {
               moveActiveBlockUp: "Outliner: Move active block up",
               moveActiveBlockDown: "Outliner: Move active block down"
             },
+            search: { placeholder: "Search this outline\u2026", previous: "Previous match", next: "Next match", close: "Close search" },
             contextMenu: {
               copyBlockReference: "Copy block reference",
               copyBlockEmbed: "Copy block embed",
@@ -15786,6 +17343,7 @@ var T = class {
               moveActiveBlockUp: "Outliner\uFF1A\u5411\u4E0A\u79FB\u52A8\u5F53\u524D\u5757",
               moveActiveBlockDown: "Outliner\uFF1A\u5411\u4E0B\u79FB\u52A8\u5F53\u524D\u5757"
             },
+            search: { placeholder: "\u641C\u7D22\u5F53\u524D\u5927\u7EB2\u2026", previous: "\u4E0A\u4E00\u4E2A\u5339\u914D", next: "\u4E0B\u4E00\u4E2A\u5339\u914D", close: "\u5173\u95ED\u641C\u7D22" },
             contextMenu: {
               copyBlockReference: "\u590D\u5236\u5757\u5F15\u7528",
               copyBlockEmbed: "\u590D\u5236\u5757\u5D4C\u5165",
@@ -16338,6 +17896,7 @@ var T = class {
               moveActiveBlockUp: "Outliner\uFF1A\u5411\u4E0A\u79FB\u52D5\u76EE\u524D\u5340\u584A",
               moveActiveBlockDown: "Outliner\uFF1A\u5411\u4E0B\u79FB\u52D5\u76EE\u524D\u5340\u584A"
             },
+            search: { placeholder: "\u641C\u5C0B\u76EE\u524D\u5927\u7DB1\u2026", previous: "\u4E0A\u4E00\u500B\u76F8\u7B26\u9805\u76EE", next: "\u4E0B\u4E00\u500B\u76F8\u7B26\u9805\u76EE", close: "\u95DC\u9589\u641C\u5C0B" },
             contextMenu: {
               copyBlockReference: "\u8907\u88FD\u5340\u584A\u5F15\u7528",
               copyBlockEmbed: "\u8907\u88FD\u5340\u584A\u5D4C\u5165",
@@ -18547,6 +20106,43 @@ var WHATS_NEW_V2_0_17 = {
     "blp-view\uFF1A\u5373\u6642\u6309\u65E5\u5206\u7D44\u7684 embed \u5217\u8868\u73FE\u5728\u6703\u4EE5\u7DCA\u6E4A\u6642\u9593\u7DDA\u5448\u73FE\u3002"
   ]
 };
+var WHATS_NEW_V2_0_20 = {
+  "en": [
+    "Live Preview: Find now includes content in Inline Edit embeds. Next/previous results scroll and highlight without entering edit mode.",
+    "Outliner: completion popups now close when the cursor leaves the link or its opening brackets are removed, including with other suggestion plugins enabled.",
+    "Updated the in-app release notes and usage guide."
+  ],
+  "zh": [
+    "Live Preview\uFF1A\u67E5\u627E\u73B0\u5728\u5305\u542B\u5185\u8054\u7F16\u8F91\u5D4C\u5165\u7684\u5185\u5BB9\uFF1B\u5207\u6362\u641C\u7D22\u7ED3\u679C\u53EA\u6EDA\u52A8\u548C\u9AD8\u4EAE\uFF0C\u4E0D\u4F1A\u8FDB\u5165\u7F16\u8F91\u72B6\u6001\u3002",
+    "Outliner\uFF1A\u5149\u6807\u79BB\u5F00\u94FE\u63A5\u6216\u5220\u9664\u8D77\u59CB\u62EC\u53F7\u65F6\uFF0C\u8865\u5168\u5F39\u7A97\u4F1A\u6B63\u786E\u5173\u95ED\uFF0C\u517C\u5BB9\u5176\u4ED6\u5EFA\u8BAE\u63D2\u4EF6\u3002",
+    "\u540C\u6B65\u66F4\u65B0\u63D2\u4EF6\u5185\u5347\u7EA7\u8BF4\u660E\u548C\u4F7F\u7528\u6587\u6863\u3002"
+  ],
+  "zh-TW": [
+    "Live Preview\uFF1A\u641C\u5C0B\u73FE\u5728\u5305\u542B\u5167\u5D4C\u7DE8\u8F2F\u7684\u5167\u5BB9\uFF1B\u5207\u63DB\u641C\u5C0B\u7D50\u679C\u53EA\u6372\u52D5\u548C\u9AD8\u4EAE\uFF0C\u4E0D\u6703\u9032\u5165\u7DE8\u8F2F\u72C0\u614B\u3002",
+    "Outliner\uFF1A\u6E38\u6A19\u96E2\u958B\u9023\u7D50\u6216\u522A\u9664\u8D77\u59CB\u62EC\u865F\u6642\uFF0C\u88DC\u5168\u5F48\u7A97\u6703\u6B63\u78BA\u95DC\u9589\uFF0C\u76F8\u5BB9\u5176\u4ED6\u5EFA\u8B70\u5916\u639B\u3002",
+    "\u540C\u6B65\u66F4\u65B0\u5916\u639B\u5167\u5347\u7D1A\u8AAA\u660E\u548C\u4F7F\u7528\u6587\u4EF6\u3002"
+  ]
+};
+var WHATS_NEW_V2_0_21 = {
+  "zh": [
+    "Outliner\uFF1A\u652F\u6301 Markdown \u81EA\u52A8\u914D\u5BF9\u548C\u4EE3\u7801\u56F4\u680F\u8865\u5168\uFF0C\u4EE3\u7801\u5757\u5185\u6362\u884C\u4E0D\u4F1A\u6253\u65AD\u5F53\u524D block \u7684\u7F16\u8F91\u3002",
+    "Outliner\uFF1A\u70B9\u51FB\u5168\u5C40\u641C\u7D22\u7ED3\u679C\u53EF\u5B9A\u4F4D\u5230\u5177\u4F53 block\uFF0C\u4E0D\u518D\u53EA\u8DF3\u5230\u6587\u4EF6\u5F00\u5934\u3002",
+    "Outliner\uFF1A\u652F\u6301 Obsidian \u539F\u751F\u524D\u8FDB\uFF0F\u8FD4\u56DE\uFF0C\u6062\u590D\u4E4B\u524D\u7684 Zoom\u3001\u6298\u53E0\u72B6\u6001\u548C\u6EDA\u52A8\u4F4D\u7F6E\u3002",
+    "Outliner\uFF1A\u65B0\u589E Ctrl/Cmd+F \u9875\u9762\u5185\u641C\u7D22\uFF0C\u5305\u542B\u5D4C\u5165\u5757\uFF1B\u5207\u6362\u7ED3\u679C\u53EA\u6EDA\u52A8\u548C\u9AD8\u4EAE\uFF0C\u4E0D\u8FDB\u5165\u7F16\u8F91\u72B6\u6001\u3002"
+  ],
+  "en": [
+    "Outliner: Markdown auto-pairing and code-fence completion keep code editing within the current block.",
+    "Outliner: global search results now navigate to the matching block instead of the file start.",
+    "Outliner: native Back/Forward restores Zoom, folded blocks, and scroll position.",
+    "Outliner: Ctrl/Cmd+F Find searches the current outline, including embedded blocks; navigation scrolls and highlights without entering edit mode."
+  ],
+  "zh-TW": [
+    "Outliner\uFF1A\u652F\u63F4 Markdown \u81EA\u52D5\u914D\u5C0D\u8207\u7A0B\u5F0F\u78BC\u570D\u6B04\u88DC\u5168\uFF0C\u7A0B\u5F0F\u78BC\u5340\u584A\u5167\u63DB\u884C\u4E0D\u6703\u6253\u65B7\u76EE\u524D block \u7684\u7DE8\u8F2F\u3002",
+    "Outliner\uFF1A\u9EDE\u64CA\u5168\u57DF\u641C\u5C0B\u7D50\u679C\u53EF\u5B9A\u4F4D\u5230\u5177\u9AD4 block\uFF0C\u4E0D\u518D\u53EA\u8DF3\u5230\u6A94\u6848\u958B\u982D\u3002",
+    "Outliner\uFF1A\u652F\u63F4 Obsidian \u539F\u751F\u524D\u9032\uFF0F\u8FD4\u56DE\uFF0C\u6062\u5FA9\u5148\u524D\u7684 Zoom\u3001\u647A\u758A\u72C0\u614B\u8207\u6372\u52D5\u4F4D\u7F6E\u3002",
+    "Outliner\uFF1A\u65B0\u589E Ctrl/Cmd+F \u9801\u9762\u5167\u641C\u5C0B\uFF0C\u5305\u542B\u5167\u5D4C\u5340\u584A\uFF1B\u5207\u63DB\u7D50\u679C\u53EA\u6372\u52D5\u548C\u9AD8\u4EAE\uFF0C\u4E0D\u9032\u5165\u7DE8\u8F2F\u72C0\u614B\u3002"
+  ]
+};
 var WhatsNewModal = class extends import_obsidian13.Modal {
   constructor(app, options) {
     super(app);
@@ -18585,42 +20181,48 @@ var WhatsNewModal = class extends import_obsidian13.Modal {
     this.contentEl.empty();
   }
   getWhatsNewItems() {
-    var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k;
+    var _a2, _b2, _c2, _d2, _e2, _f2, _g, _h, _i, _j, _k, _l, _m;
+    if (this.currentVersion === "2.0.21") {
+      return (_a2 = WHATS_NEW_V2_0_21[i18n_default.lang]) != null ? _a2 : WHATS_NEW_V2_0_21.en;
+    }
+    if (this.currentVersion === "2.0.20") {
+      return (_b2 = WHATS_NEW_V2_0_20[i18n_default.lang]) != null ? _b2 : WHATS_NEW_V2_0_20.en;
+    }
     if (this.currentVersion === "1.8.0") {
       return i18n_default.whatsNew.v1_8_0;
     }
     if (this.currentVersion === "2.0.17") {
-      return (_a2 = WHATS_NEW_V2_0_17[i18n_default.lang]) != null ? _a2 : WHATS_NEW_V2_0_17.en;
+      return (_c2 = WHATS_NEW_V2_0_17[i18n_default.lang]) != null ? _c2 : WHATS_NEW_V2_0_17.en;
     }
     if (this.currentVersion === "2.0.16") {
-      return (_b2 = WHATS_NEW_V2_0_16[i18n_default.lang]) != null ? _b2 : WHATS_NEW_V2_0_16.en;
+      return (_d2 = WHATS_NEW_V2_0_16[i18n_default.lang]) != null ? _d2 : WHATS_NEW_V2_0_16.en;
     }
     if (this.currentVersion === "2.0.15") {
-      return (_c2 = WHATS_NEW_V2_0_15[i18n_default.lang]) != null ? _c2 : WHATS_NEW_V2_0_15.en;
+      return (_e2 = WHATS_NEW_V2_0_15[i18n_default.lang]) != null ? _e2 : WHATS_NEW_V2_0_15.en;
     }
     if (this.currentVersion === "2.0.13") {
-      return (_d2 = WHATS_NEW_V2_0_13[i18n_default.lang]) != null ? _d2 : WHATS_NEW_V2_0_13.en;
+      return (_f2 = WHATS_NEW_V2_0_13[i18n_default.lang]) != null ? _f2 : WHATS_NEW_V2_0_13.en;
     }
     if (this.currentVersion === "2.0.6") {
-      return (_e2 = WHATS_NEW_V2_0_6[i18n_default.lang]) != null ? _e2 : WHATS_NEW_V2_0_6.en;
+      return (_g = WHATS_NEW_V2_0_6[i18n_default.lang]) != null ? _g : WHATS_NEW_V2_0_6.en;
     }
     if (this.currentVersion === "2.0.5") {
-      return (_f2 = WHATS_NEW_V2_0_5[i18n_default.lang]) != null ? _f2 : WHATS_NEW_V2_0_5.en;
+      return (_h = WHATS_NEW_V2_0_5[i18n_default.lang]) != null ? _h : WHATS_NEW_V2_0_5.en;
     }
     if (this.currentVersion === "2.0.4") {
-      return (_g = WHATS_NEW_V2_0_4[i18n_default.lang]) != null ? _g : WHATS_NEW_V2_0_4.en;
+      return (_i = WHATS_NEW_V2_0_4[i18n_default.lang]) != null ? _i : WHATS_NEW_V2_0_4.en;
     }
     if (this.currentVersion === "2.0.3") {
-      return (_h = WHATS_NEW_V2_0_3[i18n_default.lang]) != null ? _h : WHATS_NEW_V2_0_3.en;
+      return (_j = WHATS_NEW_V2_0_3[i18n_default.lang]) != null ? _j : WHATS_NEW_V2_0_3.en;
     }
     if (this.currentVersion === "2.0.2") {
-      return (_i = WHATS_NEW_V2_0_2[i18n_default.lang]) != null ? _i : WHATS_NEW_V2_0_2.en;
+      return (_k = WHATS_NEW_V2_0_2[i18n_default.lang]) != null ? _k : WHATS_NEW_V2_0_2.en;
     }
     if (this.currentVersion === "2.0.1") {
-      return (_j = WHATS_NEW_V2_0_1[i18n_default.lang]) != null ? _j : WHATS_NEW_V2_0_1.en;
+      return (_l = WHATS_NEW_V2_0_1[i18n_default.lang]) != null ? _l : WHATS_NEW_V2_0_1.en;
     }
     if (this.currentVersion === "2.0.0" || this.currentVersion.startsWith("2.0.")) {
-      return (_k = WHATS_NEW_V2[i18n_default.lang]) != null ? _k : WHATS_NEW_V2.en;
+      return (_m = WHATS_NEW_V2[i18n_default.lang]) != null ? _m : WHATS_NEW_V2.en;
     }
     return i18n_default.whatsNew.fallback;
   }
@@ -19532,7 +21134,7 @@ function handleEditorMenu(plugin, menu, editor, view) {
 var FILE_OUTLINER_VIEW_TYPE = "blp-file-outliner-view";
 
 // src/features/file-outliner-view/view.ts
-var import_obsidian19 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 
 // node_modules/.pnpm/luxon@3.7.2/node_modules/luxon/build/es6/luxon.mjs
 var LuxonError = class extends Error {
@@ -26084,9 +27686,9 @@ function friendlyDateTime(dateTimeish) {
 }
 
 // src/features/file-outliner-view/view.ts
-var import_state7 = require("@codemirror/state");
+var import_state8 = require("@codemirror/state");
 var import_commands2 = require("@codemirror/commands");
-var import_view6 = require("@codemirror/view");
+var import_view7 = require("@codemirror/view");
 
 // src/features/file-outliner-view/engine.ts
 function cloneBlock(b) {
@@ -27346,6 +28948,212 @@ function normalizeOutlinerFile(input, opts) {
   return { file, content, didChange };
 }
 
+// src/features/file-outliner-view/page-search.ts
+var import_obsidian17 = require("obsidian");
+function literalPattern(query) {
+  return new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "giu");
+}
+function renderedMatches(id, display, query) {
+  var _a2, _b2, _c2;
+  const doc = display.ownerDocument;
+  const win = doc.defaultView;
+  const nodes = [];
+  let text = "";
+  let previousBoundary = null;
+  const walker = doc.createTreeWalker(display, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) => {
+      if (node.nodeType === Node.ELEMENT_NODE && node.tagName !== "BR")
+        return NodeFilter.FILTER_SKIP;
+      let parent = node.parentElement;
+      while (parent && parent !== display) {
+        if (parent.matches("script, style, button, input, .blp-outliner-block-warning") || parent.hidden || parent.getAttribute("aria-hidden") === "true" || win.getComputedStyle(parent).display === "none")
+          return NodeFilter.FILTER_REJECT;
+        parent = parent.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      text += "\n";
+      continue;
+    }
+    const boundary = (_b2 = (_a2 = node.parentElement) == null ? void 0 : _a2.closest("p, li, pre, td, th, blockquote, h1, h2, h3, h4, h5, h6")) != null ? _b2 : null;
+    if (text && boundary !== previousBoundary)
+      text += "\n";
+    previousBoundary = boundary;
+    const from = text.length;
+    text += (_c2 = node.textContent) != null ? _c2 : "";
+    nodes.push({ node, from, to: text.length });
+  }
+  const result = [];
+  for (const match2 of text.matchAll(literalPattern(query))) {
+    const from = match2.index, to = from + match2[0].length;
+    const first = nodes.find((n2) => n2.from <= from && n2.to > from);
+    const last = nodes.find((n2) => n2.from < to && n2.to >= to);
+    if (!first || !last)
+      continue;
+    const range = doc.createRange();
+    range.setStart(first.node, from - first.from);
+    range.setEnd(last.node, to - last.from);
+    result.push({ id, from, to, range });
+  }
+  return result;
+}
+var searchSerial = 0;
+var OutlinerPageSearch = class {
+  constructor(host) {
+    this.host = host;
+    this.allName = `blp-find-${Date.now()}-${++searchSerial}`;
+    this.activeName = `${this.allName}-active`;
+    this.matches = [];
+    this.index = -1;
+    this.query = "";
+    this.frame = null;
+    this.activeRow = null;
+    this.preparing = true;
+    this.disposed = false;
+    const labels = i18n_default.settings.fileOutliner.search;
+    const doc = host.container.ownerDocument;
+    this.el = doc.createElement("div");
+    this.el.className = "blp-outliner-page-search";
+    this.el.setAttribute("role", "search");
+    this.el.setAttribute("aria-busy", "true");
+    host.container.prepend(this.el);
+    const search = new import_obsidian17.SearchComponent(this.el);
+    search.setPlaceholder(labels.placeholder).onChange((value) => {
+      this.query = value;
+      this.reindex(false);
+    });
+    this.input = search.inputEl;
+    this.input.setAttribute("aria-label", labels.placeholder);
+    this.count = this.el.createSpan({ cls: "blp-outliner-search-count", text: "\u2026" });
+    this.count.setAttribute("role", "status");
+    this.count.setAttribute("aria-live", "polite");
+    const button = (label, icon, action) => {
+      const el = this.el.createEl("button", { cls: "clickable-icon", attr: { "aria-label": label, title: label, type: "button" } });
+      (0, import_obsidian17.setIcon)(el, icon);
+      el.addEventListener("click", action);
+      return el;
+    };
+    this.previous = button(labels.previous, "arrow-up", () => this.move(-1));
+    this.next = button(labels.next, "arrow-down", () => this.move(1));
+    button(labels.close, "x", host.close);
+    this.previous.disabled = this.next.disabled = true;
+    this.el.addEventListener("keydown", (event) => {
+      if (event.isComposing)
+        return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        host.close();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.move(event.shiftKey ? -1 : 1);
+      }
+    });
+    this.style = doc.createElement("style");
+    this.style.textContent = `::highlight(${this.allName}) { background-color: var(--text-highlight-bg); }
+			::highlight(${this.activeName}) { background-color: var(--interactive-accent); color: var(--text-on-accent); }`;
+    doc.head.appendChild(this.style);
+    this.observer = new MutationObserver((records) => {
+      if (this.preparing || this.frame !== null || !records.some((record) => !this.el.contains(record.target)))
+        return;
+      this.frame = requestAnimationFrame(() => {
+        this.frame = null;
+        this.reindex(true);
+      });
+    });
+    this.observer.observe(host.container, { childList: true, subtree: true, characterData: true });
+    void this.prepare();
+  }
+  async prepare() {
+    try {
+      const ids = this.host.getBlockIds();
+      for (let i = 0; i < ids.length && !this.disposed; i += 8) {
+        await Promise.all(ids.slice(i, i + 8).map((id) => this.host.prepareBlock(id)));
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    } finally {
+      if (!this.disposed) {
+        this.preparing = false;
+        this.el.setAttribute("aria-busy", "false");
+        this.reindex(false);
+      }
+    }
+  }
+  focus() {
+    this.input.focus({ preventScroll: true });
+    this.input.select();
+  }
+  reindex(preserve) {
+    if (this.disposed || this.preparing)
+      return;
+    const previous = preserve ? this.matches[this.index] : null;
+    this.matches = [];
+    if (this.query)
+      for (const id of this.host.getBlockIds()) {
+        const display = this.host.getDisplay(id);
+        if (display)
+          this.matches.push(...renderedMatches(id, display, this.query));
+      }
+    const previousIndex = previous ? this.matches.findIndex((m) => m.id === previous.id && m.from === previous.from && m.to === previous.to) : -1;
+    this.index = previousIndex >= 0 ? previousIndex : this.matches.length ? 0 : -1;
+    this.previous.disabled = this.next.disabled = !this.matches.length;
+    this.selectCurrent(!preserve);
+  }
+  move(direction) {
+    if (!this.matches.length)
+      return;
+    this.index = (this.index + direction + this.matches.length) % this.matches.length;
+    this.selectCurrent(true);
+    this.input.focus({ preventScroll: true });
+  }
+  selectCurrent(reveal) {
+    var _a2, _b2, _c2;
+    this.count.textContent = `${this.index + 1} / ${this.matches.length}`;
+    (_a2 = this.activeRow) == null ? void 0 : _a2.classList.remove("is-blp-search-active");
+    this.activeRow = null;
+    const match2 = this.matches[this.index];
+    if (match2) {
+      if (reveal)
+        this.host.reveal(match2.id);
+      this.activeRow = this.host.getRow(match2.id);
+      (_b2 = this.activeRow) == null ? void 0 : _b2.classList.add("is-blp-search-active");
+    }
+    const win = this.el.ownerDocument.defaultView;
+    const registry = (_c2 = win == null ? void 0 : win.CSS) == null ? void 0 : _c2.highlights;
+    if (registry && win.Highlight) {
+      registry.set(this.allName, new win.Highlight(...this.matches.map((m) => m.range)));
+      registry.set(this.activeName, new win.Highlight(...match2 ? [match2.range] : []));
+    }
+    if (match2 && reveal) {
+      const rect = match2.range.getBoundingClientRect();
+      const host = this.host.container.getBoundingClientRect();
+      const top = Math.max(host.top, this.el.getBoundingClientRect().bottom);
+      if (rect.top < top)
+        this.host.container.scrollTop += rect.top - top;
+      else if (rect.bottom > host.bottom)
+        this.host.container.scrollTop += rect.bottom - host.bottom;
+    }
+  }
+  destroy() {
+    var _a2, _b2, _c2;
+    this.disposed = true;
+    this.observer.disconnect();
+    if (this.frame !== null)
+      cancelAnimationFrame(this.frame);
+    const registry = (_b2 = (_a2 = this.el.ownerDocument.defaultView) == null ? void 0 : _a2.CSS) == null ? void 0 : _b2.highlights;
+    registry == null ? void 0 : registry.delete(this.allName);
+    registry == null ? void 0 : registry.delete(this.activeName);
+    (_c2 = this.activeRow) == null ? void 0 : _c2.classList.remove("is-blp-search-active");
+    this.style.remove();
+    this.el.remove();
+  }
+};
+
 // src/features/file-outliner-view/pane-menu-labels.ts
 var FALLBACK = {
   openAsMarkdown: "Open as Markdown (source)",
@@ -27367,7 +29175,7 @@ function getFileOutlinerPaneMenuLabels() {
 }
 
 // src/features/file-outliner-view/display-controller.ts
-var import_obsidian17 = require("obsidian");
+var import_obsidian18 = require("obsidian");
 
 // src/features/file-outliner-view/block-markdown.ts
 var HEADING_LINE_RE = /^\s{0,3}#{1,6}(?:\s+|$)/;
@@ -27777,7 +29585,7 @@ var OutlinerDisplayController = class {
     row.appendChild(content);
     display.replaceChildren(row);
   }
-  renderBlockDisplay(id) {
+  async renderBlockDisplay(id) {
     var _a2, _b2, _c2;
     const b = this.host.getBlock(id);
     if (!b)
@@ -27793,7 +29601,7 @@ var OutlinerDisplayController = class {
     const tmp = document.createElement("div");
     tmp.classList.add("markdown-rendered");
     const component = this.host.addChildComponent();
-    void import_obsidian17.MarkdownRenderer.render(this.host.app, md.sanitized, tmp, sourcePath, component).then(() => {
+    return import_obsidian18.MarkdownRenderer.render(this.host.app, md.sanitized, tmp, sourcePath, component).then(() => {
       if (this.renderSeqById.get(id) !== seq) {
         this.host.tryOrLog(
           "display/renderBlockDisplay/discard/removeChild(component)",
@@ -27885,7 +29693,7 @@ var OutlinerDisplayController = class {
 };
 
 // src/features/file-outliner-view/editor-suggest-bridge.ts
-var import_obsidian18 = require("obsidian");
+var import_obsidian19 = require("obsidian");
 var import_state3 = require("@codemirror/state");
 function clamp(n2, min, max) {
   return Math.max(min, Math.min(max, n2));
@@ -27911,7 +29719,7 @@ function normalizeCoords(input) {
     return { x: input.left, y: input.top };
   return null;
 }
-var OutlinerSuggestEditor = class extends import_obsidian18.Editor {
+var OutlinerSuggestEditor = class extends import_obsidian19.Editor {
   constructor(cm, opts) {
     super();
     this.cm = cm;
@@ -28208,6 +30016,7 @@ var OutlinerSuggestEditor = class extends import_obsidian18.Editor {
   }
 };
 function triggerEditorSuggest(mgr, editor, file) {
+  var _a2;
   try {
     if (mgr && typeof mgr.trigger === "function") {
       return { triggered: !!mgr.trigger(editor, file, true) };
@@ -28226,6 +30035,10 @@ function triggerEditorSuggest(mgr, editor, file) {
       }
     } catch (e) {
     }
+  }
+  try {
+    (_a2 = mgr.close) == null ? void 0 : _a2.call(mgr);
+  } catch (e) {
   }
   return { triggered: false };
 }
@@ -28684,8 +30497,8 @@ var OutlinerDomController = class {
 };
 
 // src/features/file-outliner-view/editor-state.ts
-var import_state6 = require("@codemirror/state");
-var import_view5 = require("@codemirror/view");
+var import_state7 = require("@codemirror/state");
+var import_view6 = require("@codemirror/view");
 
 // node_modules/.pnpm/@codemirror+basic-setup@0.20.0/node_modules/@codemirror/basic-setup/dist/index.js
 var import_view3 = require("@codemirror/view");
@@ -28752,18 +30565,125 @@ function isRedoShortcut(evt) {
   return key === "y" || key === "z" && Boolean(evt == null ? void 0 : evt.shiftKey);
 }
 
+// src/features/file-outliner-view/markdown-input.ts
+var import_state6 = require("@codemirror/state");
+var import_view5 = require("@codemirror/view");
+function fenceAt(state, pos) {
+  let fence = null;
+  const lastLine = state.doc.lineAt(pos).number;
+  for (let n2 = 1; n2 <= lastLine; n2++) {
+    const line = state.doc.line(n2);
+    const match2 = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(line.text);
+    if (!match2)
+      continue;
+    if (fence) {
+      if (match2[2][0] === fence.marker && match2[2].length >= fence.length && /^\s*$/.test(match2[3])) {
+        if (n2 === lastLine && pos < line.from + match2[1].length + match2[2].length)
+          return fence;
+        fence = null;
+      }
+    } else if (match2[2][0] !== "`" || !match2[3].includes("`")) {
+      if (n2 === lastLine && pos <= line.from + match2[1].length)
+        return null;
+      fence = { marker: match2[2][0], length: match2[2].length, indent: match2[1], openingLine: n2 };
+    }
+  }
+  return fence;
+}
+function escapedAt(state, pos) {
+  let slashes = 0;
+  while (pos > 0 && state.sliceDoc(pos - 1, pos) === "\\") {
+    pos--;
+    slashes++;
+  }
+  return slashes % 2 === 1;
+}
+function inlineCodeAt(state, pos) {
+  const line = state.doc.lineAt(pos);
+  const prefix = state.sliceDoc(line.from, pos);
+  let delimiter = 0;
+  const runs = /`+/g;
+  let match2;
+  while (match2 = runs.exec(prefix)) {
+    if (escapedAt(state, line.from + match2.index))
+      continue;
+    if (!delimiter)
+      delimiter = match2[0].length;
+    else if (delimiter === match2[0].length)
+      delimiter = 0;
+  }
+  return delimiter > 0;
+}
+function insertMarkdownNewline(view) {
+  var _a2;
+  if (view.state.readOnly || view.composing || view.state.selection.ranges.length !== 1)
+    return false;
+  const { from, to } = view.state.selection.main;
+  const fence = fenceAt(view.state, from);
+  if (!fence || ((_a2 = fenceAt(view.state, to)) == null ? void 0 : _a2.openingLine) !== fence.openingLine)
+    return false;
+  const line = view.state.doc.lineAt(from);
+  const indent = line.number === fence.openingLine ? fence.indent : /^\s*/.exec(view.state.sliceDoc(line.from, from))[0];
+  const insert = "\n" + indent;
+  view.dispatch({ changes: { from, to, insert }, selection: { anchor: from + insert.length }, userEvent: "input.type" });
+  return true;
+}
+function markdownInputExtensions(getSettings) {
+  return [
+    // basicSetup already owns closeBrackets; configure it rather than adding a
+    // second pairing handler. Read settings per operation so toggles apply live.
+    import_state6.EditorState.languageData.of((state, pos) => {
+      const settings = getSettings();
+      const brackets = settings.brackets ? ["(", "[", "{", "'", '"'] : [];
+      if (settings.markdown && !escapedAt(state, pos) && !fenceAt(state, pos)) {
+        const inCode = inlineCodeAt(state, pos);
+        if (!inCode)
+          brackets.push("*", "_");
+        brackets.push("`");
+        if (!state.selection.main.empty && !inCode)
+          brackets.push("~", "=");
+      }
+      return [{ closeBrackets: { brackets } }];
+    }),
+    import_state6.Prec.highest(import_view5.EditorView.inputHandler.of((view, from, to, text) => {
+      if (!getSettings().markdown || view.composing || view.compositionStarted || view.state.readOnly)
+        return false;
+      if (text !== "`" || from !== to || view.state.selection.ranges.length !== 1)
+        return false;
+      const line = view.state.doc.lineAt(from);
+      if (!/^ {0,3}``$/.test(line.text) || from !== line.to)
+        return false;
+      if (fenceAt(view.state, from))
+        return false;
+      for (let n2 = line.number + 1; n2 <= view.state.doc.lines; n2++) {
+        if (/^ {0,3}`{3,}\s*$/.test(view.state.doc.line(n2).text))
+          return false;
+      }
+      const indent = line.text.slice(0, -2);
+      view.dispatch({
+        changes: { from, insert: "`\n" + indent + "```" },
+        selection: { anchor: from + 1 },
+        userEvent: "input.type"
+      });
+      return true;
+    }))
+  ];
+}
+
 // src/features/file-outliner-view/editor-state.ts
 function createOutlinerEditorState(doc, sel, host) {
+  var _a2;
   const clamp3 = (n2) => Math.max(0, Math.min(doc.length, Math.floor(n2)));
   const anchor = clamp3(sel.cursorStart);
   const head = clamp3(sel.cursorEnd);
-  return import_state6.EditorState.create({
+  return import_state7.EditorState.create({
     doc,
     selection: { anchor, head },
     extensions: [
       basicSetup,
-      import_view5.EditorView.lineWrapping,
-      import_view5.EditorView.theme({
+      markdownInputExtensions((_a2 = host.getPairingSettings) != null ? _a2 : () => ({ brackets: true, markdown: true })),
+      import_view6.EditorView.lineWrapping,
+      import_view6.EditorView.theme({
         "&": {
           font: "inherit"
         },
@@ -28772,8 +30692,8 @@ function createOutlinerEditorState(doc, sel, host) {
           lineHeight: "inherit"
         }
       }),
-      import_state6.Prec.high(
-        import_view5.keymap.of([
+      import_state7.Prec.high(
+        import_view6.keymap.of([
           {
             key: "Mod-Enter",
             run: () => host.onToggleTask()
@@ -28804,11 +30724,11 @@ function createOutlinerEditorState(doc, sel, host) {
           },
           {
             key: "Shift-Enter",
-            run: (view) => host.onSoftEnter(view)
+            run: (view) => insertMarkdownNewline(view) || host.onSoftEnter(view)
           },
           {
             key: "Enter",
-            run: () => host.onEnter()
+            run: (view) => insertMarkdownNewline(view) || host.onEnter()
           },
           {
             key: "Escape",
@@ -28832,23 +30752,25 @@ function createOutlinerEditorState(doc, sel, host) {
           }
         ])
       ),
-      import_view5.EditorView.updateListener.of((update) => {
+      import_view6.EditorView.updateListener.of((update) => {
         if (host.isSyncSuppressed())
           return;
         if (update.docChanged) {
           host.onDocChanged(update.state.doc.toString());
+          host.onMaybeTriggerSuggest();
+        } else if (update.selectionSet && !host.isArrowNavDispatching() && !host.shouldPreserveArrowNavGoalOnce()) {
           host.onMaybeTriggerSuggest();
         }
         if (update.selectionSet && !host.isArrowNavDispatching() && !host.shouldPreserveArrowNavGoalOnce()) {
           host.onResetArrowNavGoalColumn();
         }
       }),
-      import_view5.EditorView.domEventHandlers({
+      import_view6.EditorView.domEventHandlers({
         keydown: (evt) => {
-          var _a2;
+          var _a3;
           if (isPlainTextPasteShortcut(evt))
             host.onPlainTextPasteShortcut();
-          const key = String((_a2 = evt == null ? void 0 : evt.key) != null ? _a2 : "");
+          const key = String((_a3 = evt == null ? void 0 : evt.key) != null ? _a3 : "");
           const isPlainArrow = (key === "ArrowUp" || key === "ArrowDown") && !Boolean(evt == null ? void 0 : evt.shiftKey) && !Boolean(evt == null ? void 0 : evt.ctrlKey) && !Boolean(evt == null ? void 0 : evt.metaKey) && !Boolean(evt == null ? void 0 : evt.altKey);
           if (!isPlainArrow)
             host.onResetArrowNavGoalColumn();
@@ -29107,14 +31029,26 @@ function resolveFromSourceRanges(blocks, zeroBasedLine) {
   return match2;
 }
 function extractZeroBasedLineFromEphemeralState(state) {
-  var _a2, _b2;
+  var _a2, _b2, _c2, _d2;
   if (!state || typeof state !== "object")
     return null;
   const rawState = state;
   const line = (_b2 = rawState.line) != null ? _b2 : (_a2 = rawState.startLoc) == null ? void 0 : _a2.line;
-  if (typeof line !== "number" || !Number.isFinite(line))
+  if (line !== void 0 && line !== null) {
+    return typeof line === "number" && Number.isFinite(line) ? Math.max(0, Math.floor(line)) : null;
+  }
+  const content = (_c2 = rawState.match) == null ? void 0 : _c2.content;
+  const matches = (_d2 = rawState.match) == null ? void 0 : _d2.matches;
+  if (typeof content !== "string" || !Array.isArray(matches) || !Array.isArray(matches[0]))
     return null;
-  return Math.max(0, Math.floor(line));
+  const [start, end] = matches[0];
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > content.length)
+    return null;
+  let sourceLine = 0;
+  for (let newline = content.indexOf("\n"); newline >= 0 && newline < start; newline = content.indexOf("\n", newline + 1)) {
+    sourceLine++;
+  }
+  return sourceLine;
 }
 
 // src/features/file-outliner-view/view.ts
@@ -29153,7 +31087,7 @@ function extractCaretIdFromSubpath(raw) {
   const m = s2.match(/\^([a-zA-Z0-9_-]+)/);
   return (_a2 = m == null ? void 0 : m[1]) != null ? _a2 : null;
 }
-var FileOutlinerView = class extends import_obsidian19.TextFileView {
+var FileOutlinerView = class extends import_obsidian20.TextFileView {
   constructor(leaf, plugin) {
     super(leaf);
     this.outlinerFile = null;
@@ -29183,6 +31117,10 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     this.lastPlainPasteShortcutAt = 0;
     this.collapsedIds = /* @__PURE__ */ new Set();
     this.zoomStack = [];
+    this.navigationTarget = null;
+    this.historyRestoreFrame = null;
+    this.pageSearch = null;
+    this.searchScene = null;
     this.visibleNavCache = null;
     this.arrowNavGoalCh = null;
     this.arrowNavDispatching = false;
@@ -29221,7 +31159,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       },
       getDisplayEl: (id) => this.dom.getDisplayEl(id),
       getRowElEntries: () => this.dom.getRowElEntries(),
-      addChildComponent: () => this.addChild(new import_obsidian19.Component()),
+      addChildComponent: () => this.addChild(new import_obsidian20.Component()),
       removeChildComponent: (component) => this.removeChild(component),
       toggleTaskStatusForBlock: (id) => this.toggleTaskStatusForBlock(id),
       debugLog: (scope, err) => this.debugLog(scope, err),
@@ -29255,6 +31193,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       debugLog: (scope, err) => this.debugLog(scope, err)
     });
     this.contentEl.addClass("blp-file-outliner-view");
+    this.register(() => this.closeSearch(false));
     this.syncFeatureToggles();
     this.registerDomEvent(this.contentEl, "scroll", () => this.display.scheduleVisibleBlockRefresh());
     this.registerEvent(
@@ -29445,6 +31384,11 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     });
   }
   clear() {
+    this.closeSearch(false);
+    if (this.historyRestoreFrame !== null)
+      cancelAnimationFrame(this.historyRestoreFrame);
+    this.historyRestoreFrame = null;
+    this.navigationTarget = null;
     this.uninstallActiveEditorBridge();
     this.outlinerFile = null;
     this.blockById.clear();
@@ -29658,8 +31602,120 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       this.contentEl.scrollTop += rowRect.bottom - hostRect.bottom;
     }
   }
+  /** Native Obsidian Find command detects this view-local search entry point. */
+  showSearch(_replace = false) {
+    if (!this.outlinerFile)
+      return;
+    if (this.pageSearch) {
+      this.pageSearch.focus();
+      return;
+    }
+    this.searchScene = { zoom: this.getZoomRootId(), ephemeral: this.getEphemeralState() };
+    if (this.editingId)
+      this.exitEditMode(this.editingId);
+    this.clearBlockRangeSelection();
+    this.zoomStack = [];
+    this.visibleNavCache = null;
+    this.render({ forceRebuild: true });
+    this.pageSearch = new OutlinerPageSearch({
+      container: this.contentEl,
+      getBlockIds: () => Array.from(this.blockById.keys()),
+      prepareBlock: (id) => this.display.renderBlockDisplay(id),
+      getDisplay: (id) => this.dom.getDisplayEl(id),
+      getRow: (id) => this.dom.getBlockEl(id),
+      reveal: (id) => {
+        var _a2;
+        for (const ancestor of this.getAncestorPath(id).slice(0, -1))
+          this.setCollapsed(ancestor, false);
+        const zoom = this.getZoomRootId();
+        if (zoom && !this.isDescendantOrSelf(id, zoom)) {
+          this.zoomStack = [];
+          this.visibleNavCache = null;
+          this.render({ forceRebuild: true });
+        }
+        (_a2 = this.dom.getBlockEl(id)) == null ? void 0 : _a2.scrollIntoView({ block: "center" });
+        this.display.scheduleVisibleBlockRefresh();
+      },
+      close: () => this.closeSearch(true)
+    });
+    this.pageSearch.focus();
+  }
+  closeSearch(restore) {
+    if (!this.pageSearch)
+      return;
+    this.pageSearch.destroy();
+    this.pageSearch = null;
+    const scene = this.searchScene;
+    this.searchScene = null;
+    if (restore && scene) {
+      this.zoomStack = this.getAncestorPath(scene.zoom);
+      this.visibleNavCache = null;
+      this.setEphemeralState(scene.ephemeral);
+    }
+  }
+  getState() {
+    return { ...super.getState(), outlinerZoom: this.searchScene ? this.searchScene.zoom : this.getZoomRootId(), outlinerTarget: this.navigationTarget };
+  }
+  async setState(state, result) {
+    this.closeSearch(false);
+    const oldZoom = this.getZoomRootId();
+    const oldTarget = this.navigationTarget;
+    await super.setState(state, result);
+    const zoom = this.plugin.settings.fileOutlinerZoomEnabled !== false && typeof (state == null ? void 0 : state.outlinerZoom) === "string" && this.blockById.has(state.outlinerZoom) ? state.outlinerZoom : null;
+    const target = typeof (state == null ? void 0 : state.outlinerTarget) === "string" || typeof (state == null ? void 0 : state.outlinerTarget) === "number" && Number.isFinite(state.outlinerTarget) ? state.outlinerTarget : null;
+    this.navigationTarget = target;
+    if (zoom !== this.getZoomRootId()) {
+      if (this.editingId)
+        this.exitEditMode(this.editingId);
+      this.zoomStack = this.getAncestorPath(zoom);
+      this.visibleNavCache = null;
+      this.render({ forceRebuild: true });
+    }
+    if (oldZoom !== zoom || oldTarget !== target)
+      result.history = true;
+  }
+  getEphemeralState() {
+    var _a2;
+    if (this.searchScene)
+      return this.searchScene.ephemeral;
+    return { ...super.getEphemeralState(), outlinerView: {
+      file: (_a2 = this.file) == null ? void 0 : _a2.path,
+      collapsed: Array.from(this.collapsedIds),
+      scrollTop: this.contentEl.scrollTop,
+      selection: this.getActiveSelection()
+    } };
+  }
   setEphemeralState(state) {
+    var _a2;
+    if (this.historyRestoreFrame !== null)
+      cancelAnimationFrame(this.historyRestoreFrame);
+    this.historyRestoreFrame = null;
     super.setEphemeralState(state);
+    const scene = state == null ? void 0 : state.outlinerView;
+    if (scene && scene.file === ((_a2 = this.file) == null ? void 0 : _a2.path)) {
+      if (this.editingId)
+        this.exitEditMode(this.editingId);
+      this.collapsedIds = new Set(Array.isArray(scene.collapsed) ? scene.collapsed.filter((id2) => typeof id2 === "string" && this.blockById.has(id2)) : []);
+      this.visibleNavCache = null;
+      this.pendingFocus = null;
+      this.pendingScrollToId = null;
+      this.render({ forceRebuild: true });
+      const selection = scene.selection;
+      if (selection && this.blockById.has(selection.id) && Number.isFinite(selection.start) && Number.isFinite(selection.end)) {
+        this.enterEditMode(selection.id, { cursorStart: selection.start, cursorEnd: selection.end, scroll: false });
+      } else
+        this.focusOutlinerRoot();
+      if (typeof scene.revealId === "string")
+        this.scrollToBlockId(scene.revealId);
+      else if (typeof scene.scrollTop === "number" && Number.isFinite(scene.scrollTop)) {
+        this.contentEl.scrollTop = Math.max(0, scene.scrollTop);
+        this.historyRestoreFrame = requestAnimationFrame(() => {
+          this.historyRestoreFrame = null;
+          this.contentEl.scrollTop = Math.max(0, scene.scrollTop);
+        });
+      }
+      return;
+    }
     const id = extractCaretIdFromSubpath(state == null ? void 0 : state.subpath);
     if (id) {
       this.pendingScrollToId = id;
@@ -29676,6 +31732,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     this.scrollToBlockId(lineId);
   }
   setViewData(data, clear) {
+    this.closeSearch(false);
     if (clear)
       this.clear();
     const idPrefix = this.plugin.settings.enable_prefix ? this.plugin.settings.id_prefix : "";
@@ -29824,7 +31881,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     host.style.display = "none";
     root.appendChild(host);
     this.editorHostEl = host;
-    this.editorView = new import_view6.EditorView({
+    this.editorView = new import_view7.EditorView({
       parent: host,
       state: this.createEditorState("", { cursorStart: 0, cursorEnd: 0 })
     });
@@ -29922,6 +31979,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
   onOutlinerRootPointerDownCapture(evt) {
     if (evt.button !== 0)
       return;
+    this.closeSearch(false);
     this.blockRangeDrag = null;
     if (this.blockRangeSelection)
       this.clearBlockRangeSelection();
@@ -30007,6 +32065,13 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
   }
   createEditorState(doc, sel) {
     return createOutlinerEditorState(doc, sel, {
+      getPairingSettings: () => {
+        var _a2, _b2, _c2, _d2;
+        return {
+          brackets: ((_b2 = (_a2 = this.app.vault).getConfig) == null ? void 0 : _b2.call(_a2, "autoPairBrackets")) !== false,
+          markdown: ((_d2 = (_c2 = this.app.vault).getConfig) == null ? void 0 : _d2.call(_c2, "autoPairMarkdown")) !== false
+        };
+      },
       isSyncSuppressed: () => this.suppressEditorSync,
       isArrowNavDispatching: () => this.arrowNavDispatching,
       shouldPreserveArrowNavGoalOnce: () => this.preserveArrowNavGoalOnce,
@@ -30057,7 +32122,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       return;
     evt.preventDefault();
     evt.stopPropagation();
-    const menu = new import_obsidian19.Menu();
+    const menu = new import_obsidian20.Menu();
     this.buildEditorContextMenu(menu);
     menu.showAtMouseEvent(evt);
   }
@@ -30376,18 +32441,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     addCrumb({
       text: fileCrumbText,
       onClick: () => {
-        var _a3, _b3;
-        const focusId = this.getZoomRootId();
-        if (this.editingId)
-          this.exitEditMode(this.editingId);
-        this.zoomStack = [];
-        this.visibleNavCache = null;
-        if (focusId && this.blockById.has(focusId)) {
-          const end = String((_b3 = (_a3 = this.blockById.get(focusId)) == null ? void 0 : _a3.text) != null ? _b3 : "").length;
-          this.pendingFocus = { id: focusId, cursorStart: end, cursorEnd: end, scroll: false };
-          this.pendingScrollToId = focusId;
-        }
-        this.render({ forceRebuild: true });
+        this.navigateToZoom(null, this.getZoomRootId());
       }
     });
     for (let i = 0; i < this.zoomStack.length; i++) {
@@ -30402,18 +32456,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
         text: title,
         isCurrent,
         onClick: isCurrent ? void 0 : () => {
-          var _a3, _b3;
-          if (this.editingId)
-            this.exitEditMode(this.editingId);
-          this.zoomStack = this.zoomStack.slice(0, i + 1);
-          this.visibleNavCache = null;
-          const focusId = this.getZoomRootId();
-          if (focusId && this.blockById.has(focusId)) {
-            const end = String((_b3 = (_a3 = this.blockById.get(focusId)) == null ? void 0 : _a3.text) != null ? _b3 : "").length;
-            this.pendingFocus = { id: focusId, cursorStart: end, cursorEnd: end, scroll: false };
-            this.pendingScrollToId = focusId;
-          }
-          this.render({ forceRebuild: true });
+          this.navigateToZoom(id, id);
         }
       });
     }
@@ -30456,15 +32499,12 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     this.setCollapsed(id, !this.collapsedIds.has(id));
   }
   zoomInto(id) {
-    var _a2, _b2, _c2;
-    const current = this.getZoomRootId();
-    if (current === id)
+    if (this.getZoomRootId() === id || !this.blockById.has(id))
       return;
-    if (!this.blockById.has(id))
-      return;
-    this.clearBlockRangeSelection();
-    if (this.editingId)
-      this.exitEditMode(this.editingId);
+    this.navigateToZoom(id, id);
+  }
+  getAncestorPath(id) {
+    var _a2;
     const nextStack = [];
     const visited = /* @__PURE__ */ new Set();
     let cur = id;
@@ -30474,28 +32514,25 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       cur = (_a2 = this.parentById.get(cur)) != null ? _a2 : null;
     }
     nextStack.reverse();
-    this.zoomStack = nextStack;
-    this.visibleNavCache = null;
-    const end = String((_c2 = (_b2 = this.blockById.get(id)) == null ? void 0 : _b2.text) != null ? _c2 : "").length;
-    this.pendingFocus = { id, cursorStart: end, cursorEnd: end, scroll: false };
-    this.render({ forceRebuild: true });
+    return nextStack;
+  }
+  navigateToZoom(id, focusId) {
+    var _a2, _b2;
+    const scene = this.getEphemeralState();
+    const end = focusId ? String((_b2 = (_a2 = this.blockById.get(focusId)) == null ? void 0 : _a2.text) != null ? _b2 : "").length : 0;
+    scene.outlinerView.selection = focusId ? { id: focusId, start: end, end } : null;
+    scene.outlinerView.revealId = focusId;
+    void this.leaf.setViewState({
+      type: FILE_OUTLINER_VIEW_TYPE,
+      state: { ...super.getState(), outlinerZoom: id, outlinerTarget: null }
+    }, scene);
   }
   zoomOut() {
-    var _a2, _b2, _c2, _d2;
+    var _a2;
     if (this.zoomStack.length === 0)
       return;
-    this.clearBlockRangeSelection();
-    if (this.editingId)
-      this.exitEditMode(this.editingId);
-    const popped = this.zoomStack.pop();
-    this.visibleNavCache = null;
-    const focusId = (_b2 = (_a2 = this.getZoomRootId()) != null ? _a2 : popped) != null ? _b2 : null;
-    if (focusId) {
-      const end = String((_d2 = (_c2 = this.blockById.get(focusId)) == null ? void 0 : _c2.text) != null ? _d2 : "").length;
-      this.pendingFocus = { id: focusId, cursorStart: end, cursorEnd: end, scroll: false };
-      this.pendingScrollToId = focusId;
-    }
-    this.render({ forceRebuild: true });
+    const parent = (_a2 = this.zoomStack[this.zoomStack.length - 2]) != null ? _a2 : null;
+    this.navigateToZoom(parent, parent != null ? parent : this.getZoomRootId());
   }
   insertAfterBlock(id) {
     if (!this.outlinerFile)
@@ -30597,7 +32634,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     const block = this.blockById.get(id);
     if (!block)
       return;
-    const menu = new import_obsidian19.Menu();
+    const menu = new import_obsidian20.Menu();
     const labels = getFileOutlinerContextMenuLabels();
     const caretId = `^${id}`;
     menu.addItem((item) => {
@@ -31010,7 +33047,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       if (!afterCoords) {
         this.arrowNavDispatching = true;
         try {
-          editor.dispatch({ selection: import_state7.EditorSelection.create([moved]) });
+          editor.dispatch({ selection: import_state8.EditorSelection.create([moved]) });
         } finally {
           this.arrowNavDispatching = false;
         }
@@ -31021,7 +33058,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
       if (movedVert) {
         this.arrowNavDispatching = true;
         try {
-          editor.dispatch({ selection: import_state7.EditorSelection.create([moved]) });
+          editor.dispatch({ selection: import_state8.EditorSelection.create([moved]) });
         } finally {
           this.arrowNavDispatching = false;
         }
@@ -31030,7 +33067,7 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
     } else {
       this.arrowNavDispatching = true;
       try {
-        editor.dispatch({ selection: import_state7.EditorSelection.create([moved]) });
+        editor.dispatch({ selection: import_state8.EditorSelection.create([moved]) });
       } finally {
         this.arrowNavDispatching = false;
       }
@@ -31305,26 +33342,26 @@ var FileOutlinerView = class extends import_obsidian19.TextFileView {
 };
 
 // src/features/file-outliner-view/routing.ts
-var import_obsidian20 = require("obsidian");
+var import_obsidian21 = require("obsidian");
 function registerFileOutlinerRouting(plugin) {
   plugin.register(
-    around(import_obsidian20.WorkspaceLeaf.prototype, {
+    around(import_obsidian21.WorkspaceLeaf.prototype, {
       openFile(old) {
         return async function(file, openState) {
-          var _a2;
+          var _a2, _b2;
           const leafAny = this;
           if (isDetachedLeaf(this) || (leafAny == null ? void 0 : leafAny.parent) == null) {
             return old.call(this, file, openState);
           }
           try {
-            if (file instanceof import_obsidian20.TFile && ((_a2 = file.extension) == null ? void 0 : _a2.toLowerCase()) === "md") {
+            if (file instanceof import_obsidian21.TFile && ((_a2 = file.extension) == null ? void 0 : _a2.toLowerCase()) === "md") {
               if (isFileOutlinerEnabledFile(plugin, file)) {
                 if (plugin.settings.fileOutlinerViewEnabled === false) {
                   return old.call(this, file, openState);
                 }
                 const viewState = {
                   type: FILE_OUTLINER_VIEW_TYPE,
-                  state: { file: file.path },
+                  state: { file: file.path, outlinerTarget: ((_b2 = openState == null ? void 0 : openState.eState) == null ? void 0 : _b2.subpath) || extractZeroBasedLineFromEphemeralState(openState == null ? void 0 : openState.eState) },
                   active: openState == null ? void 0 : openState.active
                 };
                 await this.setViewState(viewState, openState == null ? void 0 : openState.eState);
@@ -31347,7 +33384,7 @@ function registerFileOutlinerRouting(plugin) {
 }
 
 // src/features/file-outliner-view/markdown-pane-menu.ts
-var import_obsidian21 = require("obsidian");
+var import_obsidian22 = require("obsidian");
 function addOpenAsOutlinerPaneMenuItems(menu, opts) {
   const labels = getFileOutlinerPaneMenuLabels();
   menu.addSeparator();
@@ -31377,7 +33414,7 @@ async function openOutlinerFromMarkdownView(plugin, view, file, opts) {
 }
 function registerFileOutlinerMarkdownPaneMenu(plugin) {
   plugin.register(
-    around(import_obsidian21.MarkdownView.prototype, {
+    around(import_obsidian22.MarkdownView.prototype, {
       onPaneMenu(old) {
         return function(menu, source) {
           var _a2;
@@ -31386,7 +33423,7 @@ function registerFileOutlinerMarkdownPaneMenu(plugin) {
             if (source !== "more-options")
               return;
             const file = this.file;
-            if (!(file instanceof import_obsidian21.TFile))
+            if (!(file instanceof import_obsidian22.TFile))
               return;
             if (((_a2 = file.extension) == null ? void 0 : _a2.toLowerCase()) !== "md")
               return;
@@ -31409,7 +33446,7 @@ function registerFileOutlinerMarkdownPaneMenu(plugin) {
 }
 
 // src/features/journal-feed-view/OutlinerEmbedLeafManager.ts
-var import_obsidian22 = require("obsidian");
+var import_obsidian23 = require("obsidian");
 var activeOutlinerEmbedsByPlugin = /* @__PURE__ */ new Map();
 function getActiveOutlinerEmbedViews(plugin) {
   var _a2;
@@ -31447,7 +33484,7 @@ var OutlinerEmbedLeafManager = class {
     }
   }
   async createEmbedLeaf(args) {
-    const leaf = new import_obsidian22.WorkspaceLeaf(this.plugin.app);
+    const leaf = new import_obsidian23.WorkspaceLeaf(this.plugin.app);
     markLeafAsDetached(leaf);
     const embed = {
       containerEl: args.containerEl,
@@ -31457,7 +33494,7 @@ var OutlinerEmbedLeafManager = class {
       leaf,
       view: void 0
     };
-    const component = new import_obsidian22.MarkdownRenderChild(args.containerEl);
+    const component = new import_obsidian23.MarkdownRenderChild(args.containerEl);
     component.load();
     component.register(() => {
       this.detachLeafFromComponentUnload(embed);
@@ -31712,7 +33749,7 @@ function registerFileOutlinerEditorCommandBridge(plugin) {
 }
 
 // src/features/file-outliner-view/blp-view.ts
-var import_obsidian23 = require("obsidian");
+var import_obsidian24 = require("obsidian");
 
 // node_modules/.pnpm/js-yaml@4.2.0/node_modules/js-yaml/dist/js-yaml.mjs
 var __create2 = Object.create;
@@ -34524,7 +36561,7 @@ function resolveSourceFilesOrError(plugin, dv, currentFile, source) {
   var _a2, _b2, _c2, _d2, _e2, _f2;
   const allMarkdownFiles = plugin.app.vault.getFiles().filter((f2) => {
     var _a3;
-    return f2 instanceof import_obsidian23.TFile && ((_a3 = f2.extension) == null ? void 0 : _a3.toLowerCase()) === "md";
+    return f2 instanceof import_obsidian24.TFile && ((_a3 = f2.extension) == null ? void 0 : _a3.toLowerCase()) === "md";
   });
   const enabledFiles = allMarkdownFiles.filter((f2) => isFileOutlinerEnabledFile(plugin, f2));
   const enabledPathSet = new Set(enabledFiles.map((f2) => f2.path));
@@ -34608,7 +36645,7 @@ function resolveSourceFilesOrError(plugin, dv, currentFile, source) {
   const resolvedPaths = [];
   for (const path of uniqueCandidatePaths) {
     const af = plugin.app.vault.getAbstractFileByPath(path);
-    if (af instanceof import_obsidian23.TFile) {
+    if (af instanceof import_obsidian24.TFile) {
       resolvedFiles.push(af);
       resolvedPaths.push(path);
     } else {
@@ -34981,7 +37018,7 @@ function renderEmbedList(groups) {
 }
 async function renderTimelineEmbedList(groups, el, ctx, plugin) {
   const timeline = el.createDiv({ cls: "blp-view-timeline" });
-  await import_obsidian23.MarkdownRenderer.renderMarkdown(renderEmbedList(groups), timeline, ctx.sourcePath, plugin);
+  await import_obsidian24.MarkdownRenderer.renderMarkdown(renderEmbedList(groups), timeline, ctx.sourcePath, plugin);
   const renderedNodes = Array.from(timeline.children);
   let activeItems = null;
   for (const node of renderedNodes) {
@@ -35090,7 +37127,7 @@ async function handleBlpView(plugin, source, el, ctx) {
       return;
     }
     const file = plugin.app.vault.getAbstractFileByPath(ctx.sourcePath);
-    if (!(file instanceof import_obsidian23.TFile)) {
+    if (!(file instanceof import_obsidian24.TFile)) {
       return;
     }
     const config = resolveConfigDefaults(parseConfig(source));
@@ -35269,7 +37306,7 @@ Narrow \`source\` in the code block or increase the limit in settings.`
     if (isLiveDayGroupedEmbedList(config)) {
       if (truncated) {
         const notice = el.createDiv({ cls: "blp-view-timeline-notice" });
-        await import_obsidian23.MarkdownRenderer.renderMarkdown(
+        await import_obsidian24.MarkdownRenderer.renderMarkdown(
           `> [!warning] blp-view output truncated
 > Showing ${limited.length} of ${totalMatches} items (settings max results = ${maxResults}).`,
           notice,
@@ -35279,7 +37316,7 @@ Narrow \`source\` in the code block or increase the limit in settings.`
       }
       await renderTimelineEmbedList(groups, el, ctx, plugin);
     } else {
-      await import_obsidian23.MarkdownRenderer.renderMarkdown(markdown, el, ctx.sourcePath, plugin);
+      await import_obsidian24.MarkdownRenderer.renderMarkdown(markdown, el, ctx.sourcePath, plugin);
     }
     if (showDiagnostics) {
       el.createEl("pre", { text: diagnosticsText });
@@ -35317,8 +37354,8 @@ function registerFileOutlinerView(plugin) {
 var JOURNAL_FEED_VIEW_TYPE = "blp-journal-feed-view";
 
 // src/features/journal-feed-view/view.ts
-var import_obsidian25 = require("obsidian");
-var import_state8 = require("@codemirror/state");
+var import_obsidian26 = require("obsidian");
+var import_state9 = require("@codemirror/state");
 
 // src/features/journal-feed-view/anchor.ts
 var JOURNAL_FEED_FRONTMATTER_KEY = "blp_journal_view";
@@ -35416,10 +37453,10 @@ function getJournalFeedConfigFromText(text) {
 }
 
 // src/features/journal-feed-view/daily-sources.ts
-var import_obsidian24 = require("obsidian");
+var import_obsidian25 = require("obsidian");
 var import_moment2 = __toESM(require_moment());
 function normalizeFolderPath(input) {
-  return (0, import_obsidian24.normalizePath)(String(input != null ? input : "").trim()).replace(/^\/+/, "").replace(/\/+$/, "");
+  return (0, import_obsidian25.normalizePath)(String(input != null ? input : "").trim()).replace(/^\/+/, "").replace(/\/+$/, "");
 }
 function scanDailyNotesByFolderAndFormat(app, opts) {
   var _a2, _b2, _c2, _d2, _e2, _f2, _g;
@@ -35436,11 +37473,11 @@ function scanDailyNotesByFolderAndFormat(app, opts) {
     return [];
   }
   for (const f2 of files) {
-    if (!(f2 instanceof import_obsidian24.TFile))
+    if (!(f2 instanceof import_obsidian25.TFile))
       continue;
     if (((_e2 = f2.extension) == null ? void 0 : _e2.toLowerCase()) !== "md")
       continue;
-    const filePath = (0, import_obsidian24.normalizePath)(String((_f2 = f2.path) != null ? _f2 : ""));
+    const filePath = (0, import_obsidian25.normalizePath)(String((_f2 = f2.path) != null ? _f2 : ""));
     if (normalizedFolder && !filePath.startsWith(normalizedFolder + "/"))
       continue;
     const rel = normalizedFolder ? filePath.slice(normalizedFolder.length + 1) : filePath;
@@ -35494,7 +37531,7 @@ function resolveDailySources(app) {
   try {
     (_d2 = inst.iterateDailyNotes) == null ? void 0 : _d2.call(inst, (file, ts) => {
       var _a3;
-      if (!(file instanceof import_obsidian24.TFile))
+      if (!(file instanceof import_obsidian25.TFile))
         return;
       if (((_a3 = file.extension) == null ? void 0 : _a3.toLowerCase()) !== "md")
         return;
@@ -35507,9 +37544,9 @@ function resolveDailySources(app) {
   }
   const scanned = scanDailyNotesByFolderAndFormat(app, { folderPath, format });
   if (scanned.length > 0) {
-    const existing = new Set(sources.map((s2) => (0, import_obsidian24.normalizePath)(s2.file.path)));
+    const existing = new Set(sources.map((s2) => (0, import_obsidian25.normalizePath)(s2.file.path)));
     for (const s2 of scanned) {
-      const p = (0, import_obsidian24.normalizePath)(s2.file.path);
+      const p = (0, import_obsidian25.normalizePath)(s2.file.path);
       if (existing.has(p))
         continue;
       existing.add(p);
@@ -35546,7 +37583,7 @@ function getJournalDayLabel(ts, format, nowTs = Date.now()) {
 }
 
 // src/features/journal-feed-view/view.ts
-var JournalFeedView = class extends import_obsidian25.TextFileView {
+var JournalFeedView = class extends import_obsidian26.TextFileView {
   constructor(leaf, plugin) {
     super(leaf);
     this.config = { initialDays: 3, pageSize: 7 };
@@ -35657,7 +37694,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     openAnchorBtn.addEventListener("click", () => this.openAnchorInMarkdown());
   }
   openAnchorInMarkdown() {
-    const file = this.file instanceof import_obsidian25.TFile ? this.file : null;
+    const file = this.file instanceof import_obsidian26.TFile ? this.file : null;
     if (!file)
       return;
     try {
@@ -35907,7 +37944,7 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
     if (hasHideLine)
       return;
     try {
-      cm.dispatch({ filter: false, effects: import_state8.StateEffect.appendConfig.of(editBlockExtensions()) });
+      cm.dispatch({ filter: false, effects: import_state9.StateEffect.appendConfig.of(editBlockExtensions()) });
     } catch (e) {
     }
   }
@@ -36071,10 +38108,10 @@ var JournalFeedView = class extends import_obsidian25.TextFileView {
 };
 
 // src/features/journal-feed-view/routing.ts
-var import_obsidian26 = require("obsidian");
+var import_obsidian27 = require("obsidian");
 function registerJournalFeedRouting(plugin) {
   plugin.register(
-    around(import_obsidian26.WorkspaceLeaf.prototype, {
+    around(import_obsidian27.WorkspaceLeaf.prototype, {
       openFile(old) {
         return async function(file, openState) {
           const leafAny = this;
@@ -36278,7 +38315,7 @@ var DebugUtils = class {
 };
 
 // src/main.ts
-var BlockLinkPlus = class extends import_obsidian27.Plugin {
+var BlockLinkPlus = class extends import_obsidian28.Plugin {
   constructor() {
     super(...arguments);
     this.appName = "Block Link Plus";
