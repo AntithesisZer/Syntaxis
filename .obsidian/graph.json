@@ -8,7 +8,7 @@
   "collapse-color-groups": false,
   "colorGroups": [
     {
-      "query": "file:8.1",
+      "query": "path:\"Calculus/10 参数方程与极坐标\"  ",
       "color": {
         "a": 1,
         "rgb": 14048348
@@ -25,6 +25,6 @@
   "repelStrength": 9,
   "linkStrength": 0.8,
   "linkDistance": 250,
-  "scale": 0.35663773131121523,
+  "scale": 0.4999999999999903,
   "close": false
 }
