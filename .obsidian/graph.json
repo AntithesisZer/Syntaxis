@@ -1,14 +1,14 @@
 {
   "collapse-filter": false,
   "search": "",
-  "showTags": false,
+  "showTags": true,
   "showAttachments": false,
   "hideUnresolved": false,
   "showOrphans": true,
   "collapse-color-groups": false,
   "colorGroups": [
     {
-      "query": "",
+      "query": "file:6.5",
       "color": {
         "a": 1,
         "rgb": 14048348
@@ -25,6 +25,6 @@
   "repelStrength": 9,
   "linkStrength": 0.8,
   "linkDistance": 250,
-  "scale": 0.3566377313112172,
-  "close": true
+  "scale": 0.7009914488880413,
+  "close": false
 }
