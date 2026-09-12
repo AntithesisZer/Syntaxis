@@ -397,6 +397,18 @@ export default [
         options: "rm"
     },
 
+    // Calculus
+    {
+        trigger: "dint",
+        replacement: "\\int_{$0}^{$1}{$2}\\dd{$3}$4",
+        options: "m",
+    },
+    {
+        trigger: "int",
+        replacement: "\\int{$0}\\dd{$1}$2",
+        options: "m",
+    },
+
     // Square Roots
     { trigger: "*sqrt", replacement: "\\sqrt{$0}$1",     options: "m" },
     { trigger: "sqrt",  replacement: "\\sqrt[$0]{$1}$2", options: "m" },
