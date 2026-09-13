@@ -11,7 +11,6 @@ const BASIC_DELIMITERS = [
     { trigger: "[",   openText: "[",   closeText: "]",   enlargeable: true  },
     { trigger: "{",   openText: "{",   closeText: "}",   enlargeable: false },
     // 双写 {{ 展开为转义花括号 \{ \}
-    // （原代码这里 displayRight 写的是 "\\"，少了一个 "}"，是个 bug，此处已修正）
     { trigger: "{{",  openText: "\\{", closeText: "\\}", enlargeable: true  },
     // 直接输入 \{ 展开为转义花括号 \{ \}
     { trigger: "\\{", openText: "\\{", closeText: "\\}", enlargeable: true  },
