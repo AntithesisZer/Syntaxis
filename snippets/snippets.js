@@ -10,13 +10,10 @@ const BASIC_DELIMITERS = [
     { trigger: "(",   openText: "(",   closeText: ")",   enlargeable: true  },
     { trigger: "[",   openText: "[",   closeText: "]",   enlargeable: true  },
     { trigger: "{",   openText: "{",   closeText: "}",   enlargeable: false },
-    // 双写 {{ 展开为转义花括号 \{ \}
     { trigger: "{{",  openText: "\\{", closeText: "\\}", enlargeable: true  },
-    // 直接输入 \{ 展开为转义花括号 \{ \}
     { trigger: "\\{", openText: "\\{", closeText: "\\}", enlargeable: true  },
 ];
 
-// 【扩展点 1b】新增一个命名/单词类定界符：直接往 NAMED_DELIMITERS 加一项。
 const NAMED_DELIMITERS = [
     { trigger: "brack",     left: "\\lbrack",     right: "\\rbrack" },
     { trigger: "brace",     left: "\\lbrace",     right: "\\rbrace" },
@@ -39,9 +36,6 @@ const NAMED_DELIMITERS = [
 // 【扩展点 2b】新增一个会触发放大的"环境"：
 //   往 TALL_ENVIRONMENTS 加环境名（不带 \begin{}，不用加 * 变体，
 //   下面生成正则时会自动处理 matrix* 这种星号变体）。
-//
-// 这里已经把原代码 MACRO_OP / FRACTION / BINOMIAL / sqrt / ENV_TALL
-// 里的全部内容合并了进来，一个不少。
 
 const TALL_MACROS = [
     // 大型运算符
