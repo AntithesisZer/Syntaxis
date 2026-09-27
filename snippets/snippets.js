@@ -201,9 +201,9 @@ export default [
 
 
     // MathJax Block
-    { trigger: "$",  replacement: "$$0$$1",       options: "t", priority: 1 },
-    { trigger: "$$", replacement: "$$\n$0\n$$$1", options: "t", priority: 2 },
-    
+    { trigger: "mk",  replacement: "$$0$$1",      options: "tA", priority: 1 },
+    { trigger: "dm", replacement: "$$\n$0\n$$$1", options: "tA", priority: 2 },
+
     
     // Text environment
     { trigger: "text", replacement: "\\text{$0}$1", options: "mA" },

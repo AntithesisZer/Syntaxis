@@ -1,5 +1,4 @@
 [
-  "obsidian42-brat",
   "more-ordered-lists",
   "obsidian-style-settings",
   "obsidian-tikzjax",
@@ -14,5 +13,6 @@
   "obsidian-latex-suite",
   "block-link-plus",
   "mathjax-preamble-manager",
-  "templater-obsidian"
+  "templater-obsidian",
+  "obsidian42-brat"
 ]
