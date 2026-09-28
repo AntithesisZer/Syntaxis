@@ -522,7 +522,7 @@ export default [
     { trigger: "or",   replacement: "\\cup",      options: "m"  },
 
     // Symbols
-    { trigger: "ooo", replacement: "\\infty", options: "m" },
+    { trigger: "ooo", replacement: "\\infty", options: "mA" },
 
 
     // Operators without upper or lower limits
@@ -647,6 +647,30 @@ export default [
         options: "rm"
     },
     
+
+    { trigger: /(?<![\\a-zA-Z])grad/, replacement: "\\grad{$0}$1",       options: "rmA", priority: 10 },
+    { trigger: /(?<![\\a-zA-Z])div/,  replacement: "\\divergence{$0}$1", options: "rmA", priority: 10 },
+    { trigger: /(?<![\\a-zA-Z])curl/, replacement: "\\curl{$0}$1",       options: "rmA", priority: 10 },
+    { trigger: /(?<![\\a-zA-Z])lap/,  replacement: "\\laplacian{$0}$1",  options: "rmA", priority: 10 },
+
+    // ===== 算符形式（不带参数，纯符号）=====
+    // nb   -> \nabla
+    { trigger: "nb",  replacement: "\\nabla ",           options: "mA", priority: 5 },
+    // nbd  -> \nabla \cdot   （散度算符形式）
+    { trigger: "nbd", replacement: "\\nabla \\cdot ",    options: "mA", priority: 6 },
+    // nbx  -> \nabla \times  （旋度算符形式）
+    { trigger: "nbx", replacement: "\\nabla \\times ",   options: "mA", priority: 6 },
+    // nb2  -> \nabla^2       （拉普拉斯算符形式）
+    { trigger: "nb2", replacement: "\\nabla^{2} ",       options: "mA", priority: 6 },
+
+    // ===== 文字形式运算符（\operatorname）=====
+    // 前缀 op + 名称，输出直立体运算符，与 \grad 等符号形式并存
+    { trigger: "opgrad", replacement: "\\operatorname{grad} $0", options: "mA", priority: 10 },
+    { trigger: "opdiv",  replacement: "\\operatorname{div} $0",  options: "mA", priority: 10 },
+    { trigger: "opcurl", replacement: "\\operatorname{curl} $0", options: "mA", priority: 10 },
+    { trigger: "oprot",  replacement: "\\operatorname{rot} $0",  options: "mA", priority: 10 },
+    { trigger: "oplap",  replacement: "\\operatorname{lap} $0",  options: "mA", priority: 10 },
+
 
 
     // LaTeX-like Theorem & Equation Referencer
