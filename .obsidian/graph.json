@@ -5,10 +5,10 @@
   "showAttachments": false,
   "hideUnresolved": false,
   "showOrphans": true,
-  "collapse-color-groups": false,
+  "collapse-color-groups": true,
   "colorGroups": [
     {
-      "query": "path:\"Calculus/14 偏导数\"  ",
+      "query": "path:\"Calculus/15 多重积分\"  ",
       "color": {
         "a": 1,
         "rgb": 14048348
@@ -26,5 +26,5 @@
   "linkStrength": 0.8,
   "linkDistance": 250,
   "scale": 0.45050811767577975,
-  "close": true
+  "close": false
 }
