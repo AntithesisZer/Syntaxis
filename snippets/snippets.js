@@ -662,11 +662,11 @@ export default [
 
     // ===== 文字形式运算符（\operatorname）=====
     // 前缀 op + 名称，输出直立体运算符，与 \grad 等符号形式并存
-    { trigger: "opgrad", replacement: "\\operatorname{grad} $0", options: "mA", priority: 10 },
-    { trigger: "opdiv",  replacement: "\\operatorname{div} $0",  options: "mA", priority: 10 },
-    { trigger: "opcurl", replacement: "\\operatorname{curl} $0", options: "mA", priority: 10 },
-    { trigger: "oprot",  replacement: "\\operatorname{rot} $0",  options: "mA", priority: 10 },
-    { trigger: "oplap",  replacement: "\\operatorname{lap} $0",  options: "mA", priority: 10 },
+    { trigger: "opgrad", replacement: "\\boldsymbol{\\operatorname{grad}}$0", options: "mA", priority: 10 },
+    { trigger: "opdiv",  replacement: "\\boldsymbol{\\operatorname{div}}$0",  options: "mA", priority: 10 },
+    { trigger: "opcurl", replacement: "\\boldsymbol{\\operatorname{curl}}$0", options: "mA", priority: 10 },
+    { trigger: "oprot",  replacement: "\\boldsymbol{\\operatorname{rot}}$0",  options: "mA", priority: 10 },
+    { trigger: "oplap",  replacement: "\\boldsymbol{\\operatorname{lap}}$0",  options: "mA", priority: 10 },
 
 
 
