@@ -17,23 +17,29 @@
 	- 微积分
 		- 《斯图尔特微积分》 ISBN 978-7-115-66725-0 [更多信息](https://pdc.capub.cn/search.html#/detail?id=3byjm6g7f5lclho5ho43pwuk6jpijemk3jz76jqzbzsgeukyhjk7h7zqen3mh4zijxwnmqsvzgaq6&from=1&type=cip)
 		- 《斯图尔特微积分》 ISBN 978-7-115-69708-0 [更多信息](https://pdc.capub.cn/search.html#/detail?id=xtutruy7d37ww6oynfe3h4edekujzxbhy5xqb2pgcy75qpq5b6zph7zqen3mh4zi2xhagfvopk6gq&from=1&type=cip)
-	- 线性代数：暂无
+	- 线性代数：
+		- 《线性代数及其应用（原书第6版）》 ISBN 978-7-111-72803-0 [更多信息](https://pdc.capub.cn/search.html#/detail?id=xuim2wzsrpr3rnwuzowg5pnqf4k3jcpo3bqvzuipaflzjvdekbja&from=1&type=isbn)
 	- 概率论：暂无
 - 计算机
-	- 数据结构与算法：暂无
+	- 数据结构与算法：
+		- 《算法导论》ISBN 978-7-111-80002-6  [更多信息](https://pdc.capub.cn/search.html#/detail?id=wkiodtgvlnqe6bal55roco7tsh5nyucphnwjsknljdiup2hauxna&from=1&type=isbn)
+		- 《数据结构与算法分析——C++语言描述（第四版）》 ISBN 978-7-121-29057-2 [更多信息](https://pdc.capub.cn/search.html#/detail?id=louhsrtamoewqsgraokbg4hr5n2ruauw3nypeighvukeeoqyinra&from=1&type=isbn)
+		- 《2027年数据结构考研复习指导》ISBN 978-7-121-51791-4 [更多信息](https://pdc.capub.cn/search.html#/detail?id=it2izl6kzykchcfgmb6m7upaoqeafjihb24mrbymgluxta6uuiaq&from=1&type=isbn)
 	- 计算机系统：暂无
 	- 计算机组成原理：暂无
 	- 计算机网络：暂无
 
+主要参考资料排序不分先后。
 更多信息来自[中国国家版本馆](https://pdc.capub.cn/)，部分参考资料存在细微版本差异（如印次等），更多信息中使用的是与实际参考资料完全一致的信息。例如，在微积分参考资料中存在两本《斯图尔特微积分》，它们的印次都是1，但有不同的分册号，更多信息中的内容与实际用书是完全相符的。
 
 ### 特殊说明
 
 该仓库仅被作笔记的远程备份仓库。
 
-该笔记仅有极少数图像为AI生成，其余所有内容或许会参考AI生成的内容，但都没有直接使用AI生成的内容。
+该笔记仅有极少数图像为LLM生成，其余所有内容或许会参考LLM生成的内容，但都没有直接使用LLM生成的内容，这意味着仓库作者审核过LLM生成的所有内容。
 
-笔记结构高度依赖主要参考资料的目录（但不会完全与原书结构一致），部分内容被认为是“不必要的”，但为了保持结构的完整性，仍然编写了对应部分内容的章节，但内容为空。
+部分笔记（例如微积分）结构高度依赖主要参考资料的目录（但不会完全与原书结构一致），部分内容被认为是“不必要的”，但为了保持结构的完整性，仍然保留了对应部分内容的章节，但内容为空。
+另一部分笔记结构不再依赖主要参考资料的目录，更多是总结、提炼后的产生的结构。
 
 笔记中的一部分内容被认为是过于“浅薄”的，会补充一些内容，其中的一部分会被用标签#Extended标注出来。例如，在微积分的换元法中补充了测度论的内容，但这样的内容仅仅作为主题内容（微积分）的补充，补充的内容（测度论）很有可能是不够严谨也不够详尽的。这样的补充可能是一些说明性的段落，也有可能是不存在于主要参考资料中的章节，甚至可能会为了补充延伸的内容编写独立的.md文件。此时，笔记的编写更多考虑内容的完整性、严谨性，可能会覆盖掉主要参考资料原本的行文结构。还有一部分补充的内容会和主要参考资料原文整合在一起，它们不会被标注出来。
 
