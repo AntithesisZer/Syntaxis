@@ -14,7 +14,7 @@
   "Components@@vault-profile-autohide": false,
   "Components@@CTA-BTN-enable": false,
   "Components@@file-names-untrim": false,
-  "Components@@folder-font-bold": false,
+  "Components@@folder-font-bold": true,
   "Components@@file-icon-remove": false,
   "Components@@colorful-folder": false,
   "Components@@outline-enhanced": false,
@@ -73,5 +73,6 @@
   "Editor@@ul-marker-restore": false,
   "Editor@@img-center-align": true,
   "Editor@@callout-border-width": "1px",
-  "Editor@@callout-radius": "12px"
+  "Editor@@callout-radius": "12px",
+  "Editor@@bold-color@@light": "#000000"
 }
