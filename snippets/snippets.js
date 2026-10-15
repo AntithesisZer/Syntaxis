@@ -439,6 +439,12 @@ export default [
         options: "rm"
     },
 
+    // Matrix
+    {
+        trigger: "(?<![\\\\a-zA-Z])mat",
+        replacement: "\\boldsymbol{$0}$1",
+        options: "rmA"
+    },
 
     // ENVs
     {
