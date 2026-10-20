@@ -425,6 +425,10 @@ export default [
 		description: "proj/comp 投影公式（带占位符）"
 	},
 
+    // Linear Algebra
+    {trigger: "*span", replacement: "\\operatorname{Span}", options: "mA"},
+    {trigger: "span",  replacement: "\\operatorname{Span}\\qty{$0}", options: "mA"},
+
     // Domain, Image, Range
     {
         trigger: "(domain|image|range)",
