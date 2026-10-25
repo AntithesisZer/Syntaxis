@@ -426,8 +426,11 @@ export default [
 	},
 
     // Linear Algebra
-    {trigger: "*span", replacement: "\\operatorname{Span}", options: "mA"},
-    {trigger: "span",  replacement: "\\operatorname{Span}\\qty{$0}", options: "mA"},
+    {trigger: "*span", replacement: "\\operatorname{Span}$0", options: "mA"},
+    {trigger: "span",  replacement: "\\operatorname{Span}\\qty{$0}$1", options: "mA"},
+
+	{trigger: "*diag", replacement: "\\operatorname{diag}$0", options: "mA"},
+	{trigger: "diag", replacement: "\\operatorname{diag}\\qty($0)$1", options: "mA"},
 
     // Domain, Image, Range
     {
