@@ -1,11 +1,3 @@
-// ==========================================
-// 1. 定界符数据源定义
-// ==========================================
-// 【扩展点 1a】新增一个基础符号定界符：直接往 BASIC_DELIMITERS 加一项。
-//   enlargeable 表示它是否参与"高符号智能放大"（\left...\right）。
-//   注意：裸花括号 {} 只是分组符号，不是 \left\{...\right\} 的合法
-//   定界符，所以下面把它标为 enlargeable: false。
-
 const BASIC_DELIMITERS = [
     { trigger: "(",   openText: "(",   closeText: ")",   enlargeable: true  },
     { trigger: "[",   openText: "[",   closeText: "]",   enlargeable: true  },
@@ -26,16 +18,6 @@ const NAMED_DELIMITERS = [
     { trigger: "group",     left: "\\lgroup",     right: "\\rgroup" },
     { trigger: "moustache", left: "\\lmoustache", right: "\\rmoustache" },
 ];
-
-
-// ==========================================
-// 2. 高度匹配常量（可扩展）
-// ==========================================
-// 【扩展点 2a】新增一个会触发自动放大的"命令"：
-//   往 TALL_MACROS 加命令名（不带反斜杠）。
-// 【扩展点 2b】新增一个会触发放大的"环境"：
-//   往 TALL_ENVIRONMENTS 加环境名（不带 \begin{}，不用加 * 变体，
-//   下面生成正则时会自动处理 matrix* 这种星号变体）。
 
 const TALL_MACROS = [
     // 大型运算符
@@ -59,22 +41,13 @@ const TALL_ENVIRONMENTS = [
     "array", "aligned", "gathered", "split",
 ];
 
-// 【扩展点 3】平衡括号正则允许的最大自我嵌套深度。
-// 默认 3 层（例如 \lbrace \lbrace \lbrace x \rbrace \rbrace \rbrace 仍能
-// 被正确识别）。调大会略微增加正则复杂度/编译开销，一般没必要调。
 const MAX_NESTING_DEPTH = 3;
-
-
-// ==========================================
-// 3. 工具函数
-// ==========================================
 
 function escapeRegex(str) {
     if (!str) return "";
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// 生成"内容中含有高符号/高环境"的正则片段（不含捕获组，仅供拼接）
 function buildTallAlternation() {
     const macroPart = TALL_MACROS.length
         ? `\\\\(?:${TALL_MACROS.map(escapeRegex).join("|")})(?![a-zA-Z])`
@@ -86,10 +59,6 @@ function buildTallAlternation() {
 }
 const TALL_ALTERNATION = buildTallAlternation();
 
-// 生成"有界深度平衡括号"内容正则：允许 content 内部出现最多 depth 层
-// 同类型 (openPat ... closePat) 的自我嵌套。
-// 用 [\s\S] 代替原来的 [^\n]，因此天然支持跨行匹配（matrix/cases 等
-// 多行环境不再被漏掉）。
 function buildBalancedContent(openPat, closePat, depth) {
     let pattern = `(?:(?!${openPat}|${closePat})[\\s\\S])*`;
     for (let d = 0; d < depth; d++) {
@@ -98,22 +67,13 @@ function buildBalancedContent(openPat, closePat, depth) {
     return pattern;
 }
 
-// 生成"必须含有高符号/高环境"的平衡括号内容捕获组
 function buildTallBalancedGroup(openPat, closePat) {
     const balanced = buildBalancedContent(openPat, closePat, MAX_NESTING_DEPTH);
-    // 用零宽先行断言要求内容里某处出现高符号/高环境，
-    // 实际消耗的文本仍由 balanced 部分负责，保证捕获组内容与真实匹配文本一致
     return `(?=[\\s\\S]*?(?:${TALL_ALTERNATION}))${balanced}`;
 }
 
-
-// ==========================================
-// 4. 片段生成：基础/命名定界符自动展开（对应原 3.1 / 3.3，逻辑不变）
-// ==========================================
-
 const generatedSnippets = [];
 
-// 4.1 基础定界符自动补全
 BASIC_DELIMITERS.forEach(({ trigger, openText, closeText }) => {
     let safeTrigger;
     if (trigger === "\\{") {
@@ -134,7 +94,6 @@ BASIC_DELIMITERS.forEach(({ trigger, openText, closeText }) => {
     });
 });
 
-// 4.2 命名定界符基础展开（手动 Tab 触发）
 NAMED_DELIMITERS.forEach(({ trigger, left, right }) => {
     const safeTrigger = `(?<![a-zA-Z\\\\])${trigger}`;
 
@@ -146,13 +105,6 @@ NAMED_DELIMITERS.forEach(({ trigger, left, right }) => {
     });
 });
 
-
-// ==========================================
-// 5. 片段生成：智能放大（有界深度平衡括号版，对应原 3.2 / 3.4）
-// ==========================================
-
-// 5.1 基础定界符智能放大：\left( content \right)（保留标准的带空格风格）
-// 先按 (openText, closeText) 去重，避免 "{{" 和 "\{" 生成两条重复 snippet
 const basicEnlargeTargets = new Map();
 BASIC_DELIMITERS.forEach(({ openText, closeText, enlargeable }) => {
     if (!enlargeable) return;
@@ -175,14 +127,11 @@ basicEnlargeTargets.forEach(({ openText, closeText }) => {
     });
 });
 
-// 5.2 命名定界符智能放大：\left\cmd{content}\right\cmd（紧凑、无多余空格）
 NAMED_DELIMITERS.forEach(({ left, right }) => {
     const openPat = escapeRegex(left);
     const closePat = escapeRegex(right);
     const contentGroup = buildTallBalancedGroup(openPat, closePat);
 
-    // \{?...\}? 用来吞掉基础展开（4.2）时自动套上的那层 {}，
-    // 输出时统一换成紧凑写法自己的 {}
     const trigger =
         `(?<!\\\\left\\s*)${openPat}\\s*\\{?\\s*(${contentGroup})\\s*\\}?\\s*(?<!\\\\right\\s*)${closePat}`;
 
@@ -426,11 +375,29 @@ export default [
 	},
 
     // Linear Algebra
+    {
+        trigger: "(?<![\\\\a-zA-Z])mat",
+        replacement: "\\boldsymbol{$0}$1",
+        options: "rmA"
+    },
+
     {trigger: "*span", replacement: "\\operatorname{Span}$0", options: "mA"},
     {trigger: "span",  replacement: "\\operatorname{Span}\\qty{$0}$1", options: "mA"},
 
 	{trigger: "*diag", replacement: "\\operatorname{diag}$0", options: "mA"},
 	{trigger: "diag", replacement: "\\operatorname{diag}\\qty($0)$1", options: "mA"},
+
+    {
+        trigger: "(?<![A-Za-z\\\\])(?<!\\\\(?:operatorname|mathrm|mathbf|text)\\{)(row|col)",
+        replacement: (match) => `\\operatorname{${match[1]}}_{$0}\\qty($1)$2`,
+        options: "rmA",
+        description: "row/col 完整展开(带下标与括号)"
+    }, {
+        trigger: "(?<!\\\\)\\\\(row|col)",
+        replacement: (match) => `\\operatorname{${match[1]}}`,
+        options: "rmA",
+        description: "裸算子 row/col"
+    },
 
     // Domain, Image, Range
     {
@@ -444,13 +411,6 @@ export default [
             return `\\mathrm{${map[match[1]]}}($0)$1`;
         },
         options: "rm"
-    },
-
-    // Matrix
-    {
-        trigger: "(?<![\\\\a-zA-Z])mat",
-        replacement: "\\boldsymbol{$0}$1",
-        options: "rmA"
     },
 
     // ENVs
@@ -681,7 +641,13 @@ export default [
     { trigger: "oprot",  replacement: "\\operatorname{rot}$0",  options: "mA", priority: 10 },
     { trigger: "oplap",  replacement: "\\operatorname{lap}$0",  options: "mA", priority: 10 },
 
-
+    // \qty
+    {
+        trigger: "(?<![A-Za-z\\\\])(?<!\\\\(?:operatorname|mathrm|mathbf|text)\\{)qty",
+        replacement: "\\qty$0",
+        options: "rmA",
+        description: "qty -> \\qty"
+    },
 
     // LaTeX-like Theorem & Equation Referencer
     // Theorem Environments
