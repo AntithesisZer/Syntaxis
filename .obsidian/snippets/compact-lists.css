@@ -1,0 +1,41 @@
+/*
+ * 让列表与前后正文连续排版。
+ * 保留列表缩进、项目符号、编号和正常行高。
+ */
+
+/* 1. 去掉列表自身的上下外边距，包括嵌套列表 */
+.markdown-rendered :is(ul, ol) {
+    margin-block-start: 0 !important;
+    /* margin-block-end: 0 !important; */
+}
+
+/* 2. 正文 → 列表：去掉正文的下外边距
+ * 第一种结构：Obsidian 阅读视图的块级包装
+ * 第二种结构：正文与列表直接相邻，例如部分引用内容
+ */
+.markdown-rendered .el-p:has(+ :is(.el-ul, .el-ol)) > p,
+.markdown-rendered p:has(+ :is(ul, ol)) {
+    margin-block-end: 0 !important;
+}
+
+/* 3. 列表 → 正文：去掉正文的上外边距 */
+.markdown-rendered :is(.el-ul, .el-ol) + .el-p > p,
+.markdown-rendered :is(ul, ol) + p {
+    margin-block-start: 0 !important;
+}
+
+/* 4. 去掉列表项之间的额外间距 */
+.markdown-rendered {
+    --list-spacing: 0;
+}
+
+.markdown-rendered :is(ul, ol) > li {
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+}
+
+/* 5. 去掉“松散列表”中，列表项内部段落的上下外边距 */
+.markdown-rendered li > p {
+    margin-block-start: 0 !important;
+    margin-block-end: 0 !important;
+}
