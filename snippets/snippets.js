@@ -387,16 +387,22 @@ export default [
 	{trigger: "*diag", replacement: "\\operatorname{diag}$0", options: "mA"},
 	{trigger: "diag", replacement: "\\operatorname{diag}\\qty($0)$1", options: "mA"},
 
+    // row, col, Row, Col, Null
     {
-        trigger: "(?<![A-Za-z\\\\])(?<!\\\\(?:operatorname|mathrm|mathbf|text)\\{)(row|col)",
-        replacement: (match) => `\\operatorname{${match[1]}}_{$0}\\qty($1)$2`,
-        options: "rmA",
-        description: "row/col 完整展开(带下标与括号)"
-    }, {
-        trigger: "(?<!\\\\)\\\\(row|col)",
+        trigger: "(?<![A-Za-z\\\\])\\*(row|col|Row|Col|Nul)",
         replacement: (match) => `\\operatorname{${match[1]}}`,
         options: "rmA",
-        description: "裸算子 row/col"
+        description: "裸算子：*row / *col / *Row / *Col / *Null"
+    }, {
+        trigger: "(?<![A-Za-z\\\\*])(?<!\\\\(?:operatorname|mathrm|mathbf|text)\\{)(row|col)",
+        replacement: (match) => `\\operatorname{${match[1]}}_{$0}\\qty($1)$2`,
+        options: "rmA",
+        description: "矩阵行/列元素：带下标与括号"
+    }, {
+        trigger: "(?<![A-Za-z\\\\*])(?<!\\\\(?:operatorname|mathrm|mathbf|text)\\{)(Row|Col|Nul)",
+        replacement: (match) => `\\operatorname{${match[1]}}\\qty($0)$1`,
+        options: "rmA",
+        description: "行空间/列空间/零空间：带括号"
     },
 
     // Domain, Image, Range
